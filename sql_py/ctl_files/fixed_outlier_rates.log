@@ -1,0 +1,57 @@
+
+SQL*Loader: Release 12.1.0.2.0 - Production on Fri Jan 26 09:40:04 2018
+
+Copyright (c) 1982, 2014, Oracle and/or its affiliates.  All rights reserved.
+
+Control File:   fixed_outlier_rates.ctl
+Data File:      ../../tables/fixed_outlier_rates.txt
+  Bad File:     fixed_outlier_rates.bad
+  Discard File:  none specified
+ 
+ (Allow all discards)
+
+Number to load: ALL
+Number to skip: 1
+Errors allowed: 999999
+Bind array:     64 rows, maximum of 256000 bytes
+Continuation:    none specified
+Path used:      Conventional
+
+Table FIXED_OUTLIER_RATES, loaded from every logical record.
+Insert option in effect for this table: TRUNCATE
+TRAILING NULLCOLS option in effect
+
+   Column Name                  Position   Len  Term Encl Datatype
+------------------------------ ---------- ----- ---- ---- ---------------------
+AGO_IND                             FIRST     *  WHT      CHARACTER            
+UNIT_TREATED                         NEXT     *  WHT      CHARACTER            
+AI_RATE_TYPE                         NEXT     *  WHT      CHARACTER            
+SITE_TYPE                            NEXT     *  WHT      CHARACTER            
+RATE1                                NEXT     *  WHT      CHARACTER            
+RATE2                                NEXT     *  WHT      CHARACTER            
+RATE3                                NEXT     *  WHT      CHARACTER            
+LOG_RATE1                            NEXT     *  WHT      CHARACTER            
+LOG_RATE2                            NEXT     *  WHT      CHARACTER            
+LOG_RATE3                            NEXT     *  WHT      CHARACTER            
+
+
+Table FIXED_OUTLIER_RATES:
+  35 Rows successfully loaded.
+  0 Rows not loaded due to data errors.
+  0 Rows not loaded because all WHEN clauses were failed.
+  0 Rows not loaded because all fields were null.
+
+
+Space allocated for bind array:                 165120 bytes(64 rows)
+Read   buffer bytes: 1048576
+
+Total logical records skipped:          1
+Total logical records read:            35
+Total logical records rejected:         0
+Total logical records discarded:        0
+
+Run began on Fri Jan 26 09:40:04 2018
+Run ended on Fri Jan 26 09:40:05 2018
+
+Elapsed time was:     00:00:01.22
+CPU time was:         00:00:00.05
