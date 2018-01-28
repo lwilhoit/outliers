@@ -6,6 +6,11 @@ Create tables to find high or outlier values in the PUR.
 import os
 import sys
 import subprocess
+import traceback
+import logging
+logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
+logging.debug('Start of program')
+# For simple explanation of python logging, see "Automate the boring stuff with Python", p 221
 
 from sys import version_info
 if version_info.major == 2:
@@ -44,6 +49,14 @@ load_from_oracle_tk = BooleanVar()
 #import start
 
 def call_sql(sql_login, sql_file, *option_list):
+    """ Call Oracle to run script in sql_file.
+        Parameter sql_login is a string defined at the beginning of
+        procedure start_procedures.  It contains the command "sqlplus"
+        and the userid and password.
+
+        Parameter sql_file is the name of the SQL script to be run.
+    """
+    logging.debug('Start of call_sql() using file %s', sql_file)
     try:
         print("\n", "*"*80)
         print("Running Oracle script", sql_file)
@@ -60,6 +73,7 @@ def call_sql(sql_login, sql_file, *option_list):
 
         response = subprocess.run(sql_login + '@' + sql_file + sql_options, 
                                   stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        # assert response.returncode == 0, 'Assert: error in SQL script'
 
         # response.stdout value is a byte code (respresented by b' ')
         # to get a regular string, use decode('UTF-8')
@@ -77,15 +91,18 @@ def call_sql(sql_login, sql_file, *option_list):
             raise Exception
     except FileNotFoundError as fnf:
         print('In call_sql() this file not found: {}'.format(fnf.filename))
+        print(traceback.format_exc())
         sys.exit()
     except Exception as ex:
         print("Exception raised in procedure call_sql()")
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
         message = template.format(type(ex).__name__, ex.args)
         print(message)
+        print(traceback.format_exc())
         sys.exit()
 
 def call_ctl(loader_login, load_table):
+    logging.debug('Start of call_ctl() using table %s', load_table)
     try:
         print("\n", "*"*80)
         print("Load data into table", load_table.upper())
@@ -98,7 +115,7 @@ def call_ctl(loader_login, load_table):
 
         loader_string = loader_login + ctl_file + ctl_options + log_file
 
-        response = subprocess.run(loader_string, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+        response = subprocess.run(loader_string, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)        
 
         stdout_str = response.stdout.decode('UTF-8') 
         stderr_str = response.stderr.decode('UTF-8') 
@@ -120,6 +137,7 @@ def call_ctl(loader_login, load_table):
         sys.exit()
 
 def start_procedures():
+    logging.debug('Start of start_procedures()')
     try:
         userid = userid_tk.get()
         password = password_tk.get()
@@ -165,6 +183,8 @@ def start_procedures():
                 sql_file = 'create_ai_num_recs.sql'
                 call_sql(sql_login, sql_file, stat_year, num_stat_years)
 
+                sql_file = 'create_pur_rates.sql'
+                call_sql(sql_login, sql_file, stat_year, num_stat_years)
         else:
             print("Outliers not run")
 
@@ -179,6 +199,7 @@ def start_procedures():
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
         message = template.format(type(ex).__name__, ex.args)
         print(message)
+        print(traceback.format_exc())
         sys.exit()
 
 def quit_program():
