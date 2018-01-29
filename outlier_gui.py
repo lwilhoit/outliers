@@ -3,6 +3,11 @@
 Create tables to find high or outlier values in the PUR.
 """ 
 
+# To do:
+#   Print output to screen during long running processes.
+#   I tried doing that in long_running.py and test.sql
+#   but this does not work like I want.
+
 import os
 import sys
 import subprocess
@@ -27,6 +32,7 @@ elif version_info.major == 3:
 
 tns_service = '@dprprod2'
 sql_directory = 'sql_py/'
+table_directory = 'tables/'
 ctl_directory = 'sql_py/ctl_files/'
 ctl_options = ' SKIP=1 errors=999999 LOG='
 
@@ -61,12 +67,6 @@ def call_sql(sql_login, sql_file, *option_list):
         print("\n", "*"*80)
         print("Running Oracle script", sql_file)
 
-        # Test to see if sql_file can be found. If not, this statement
-        # will raise a FileNotFoundError exception.
-        sql_file = sql_directory + sql_file
-        f = open(sql_file)
-        f.close
-
         sql_options = ''
         for i in option_list:
             sql_options = sql_options + ' ' + str(i)
@@ -84,15 +84,13 @@ def call_sql(sql_login, sql_file, *option_list):
         print('returncode = ' + str(response.returncode))
         print('find = ' + str(stdout_str.find('SQL*Plus')))
 
-        # sqlplus() does not always return a number > 0 when errors occur;
-        # some of the additional errors will have 'SQL*Plus' in the stdout.
-        # However, some errors will just cause the script to stop with no messages.
+        # sqlplus() does not always return a number > 0 when errors occur,
+        # such as when you have an invalid option.
+        # In these cases the script will have 'SQL*Plus' in the stdout.
+        # However, some errors might cause the script to hang with no messages;
+        # in those cases you need to stop it by typing ctrl-c. 
         if response.returncode != 0 or stdout_str.find('SQL*Plus') > -1:
             raise Exception
-    except FileNotFoundError as fnf:
-        print('In call_sql() this file not found: {}'.format(fnf.filename))
-        print(traceback.format_exc())
-        sys.exit()
     except Exception as ex:
         print("Exception raised in procedure call_sql()")
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
@@ -110,9 +108,6 @@ def call_ctl(loader_login, load_table):
         ctl_file = load_table + '.ctl'
         log_file = load_table + '.log'
 
-        f = open(ctl_directory + ctl_file)
-        f.close
-
         loader_string = loader_login + ctl_file + ctl_options + log_file
 
         response = subprocess.run(loader_string, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)        
@@ -126,9 +121,6 @@ def call_ctl(loader_login, load_table):
 
         if response.returncode != 0 or stdout_str.find('SQL*Plus') > -1:
             raise Exception
-    except FileNotFoundError as fnf:
-        print('In call_ctl() this file not found: {}'.format(fnf.filename))
-        sys.exit()
     except Exception as ex:
         print( "Python script raised an exception running " + ctl_file)
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
@@ -139,6 +131,47 @@ def call_ctl(loader_login, load_table):
 def start_procedures():
     logging.debug('Start of start_procedures()')
     try:
+        # Test to see if these files can be found. If not, the fopen() function
+        # will raise a FileNotFoundError exception.
+        file_list = []
+        file_list.append(sql_directory + 'create_adjuvants.sql')
+        file_list.append(sql_directory + 'create_ai_groups_ai_outlier_stats.sql')
+        file_list.append(sql_directory + 'create_ai_groups_ai_outlier_stats_nonag.sql')
+        file_list.append(sql_directory + 'create_ai_names.sql')
+        file_list.append(sql_directory + 'create_ai_num_recs.sql')
+        file_list.append(sql_directory + 'create_ai_num_recs_nonag.sql')
+        file_list.append(sql_directory + 'create_fixed_outlier_lbs_app.sql')
+        file_list.append(sql_directory + 'create_fixed_outlier_lbs_app_ais.sql')
+        file_list.append(sql_directory + 'create_fixed_outlier_rates.sql')
+        file_list.append(sql_directory + 'create_fixed_outlier_rates_ais.sql')
+        file_list.append(sql_directory + 'create_prod_chem_major_ai.sql')
+        file_list.append(sql_directory + 'create_pur_outlier.sql')
+        file_list.append(sql_directory + 'create_pur_rates_nonag.sql')
+        file_list.append(sql_directory + 'create_pur_site_groups.sql')
+        file_list.append(sql_directory + 'outlier_stats.py')
+        file_list.append(sql_directory + 'outlier_stats_nonag.py')
+
+        file_list.append(ctl_directory + 'ai_group_nonag_stats_append.ctl')
+        file_list.append(ctl_directory + 'ai_group_nonag_stats_replace.ctl')
+        file_list.append(ctl_directory + 'ai_group_stats_append.ctl')
+        file_list.append(ctl_directory + 'ai_group_stats_replace.ctl')
+        file_list.append(ctl_directory + 'ai_outlier_nonag_stats_append.ctl')
+        file_list.append(ctl_directory + 'ai_outlier_nonag_stats_replace.ctl')
+        file_list.append(ctl_directory + 'ai_outlier_stats_append.ctl')
+        file_list.append(ctl_directory + 'ai_outlier_stats_replace.ctl')
+        file_list.append(ctl_directory + 'fixed_outlier_lbs_app.ctl')
+        file_list.append(ctl_directory + 'fixed_outlier_rates.ctl')
+        file_list.append(ctl_directory + 'pur_site_groups.ctl')
+
+        file_list.append(table_directory + 'fixed_outlier_rates.txt')
+        file_list.append(table_directory + 'fixed_outlier_lbs_app.txt')
+
+        for file in file_list:
+            f = open(file)
+            f.close
+
+        print('All files exist.')
+                
         userid = userid_tk.get()
         password = password_tk.get()
 
@@ -167,6 +200,13 @@ def start_procedures():
         if run_outliers:
             if run_outlier_setup:
                 #################################################################################
+                # Create empty table PUR_SITE_GROUPS
+                sql_file = 'create_pur_site_groups.sql'
+                call_sql(sql_login, sql_file)
+
+
+            if run_fixed_tables:
+                #################################################################################
                 # Create empty table FIXED_OUTLIER_RATES
                 sql_file = 'create_fixed_outlier_rates.sql'
                 call_sql(sql_login, sql_file)
@@ -174,6 +214,7 @@ def start_procedures():
                 # Load data into table FIXED_OUTLIER_RATES
                 load_table = 'fixed_outlier_rates'
                 call_ctl(loader_login, load_table)
+
 
             if run_pur_rates:
                 #################################################################################
