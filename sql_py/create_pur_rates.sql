@@ -18,12 +18,62 @@ PROMPT Creating PUR_RATES_&&1 table...
 DECLARE
 	v_table_exists		INTEGER := 0;
    v_table_name      VARCHAR2(100);
-   v_num_days_old    INTEGER := &&3;
+   p_num_days_old    INTEGER := &&3;
+   v_num_days_old    INTEGER;
    v_created_date    DATE;
    e_old_table       EXCEPTION;
 BEGIN
    :returncode := 0;
+   -- Check creation data for table AI_NUM_RECS_SUM_&&1.
+   -- This table needs to be created within the last day. 
+   v_table_name := UPPER('AI_NUM_RECS_SUM_&&1 ');
+   v_num_days_old := 2;
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
+
+   SELECT   created
+   INTO     v_created_date
+   FROM     all_tables left JOIN all_objects 
+               ON all_tables.owner = all_objects.owner AND
+                  all_tables.table_name = all_objects.object_name
+   WHERE    object_type = 'TABLE' AND
+            all_tables.owner = 'PUR_REPORT' AND
+            table_name = v_table_name;
+
+   IF v_created_date < SYSDATE - v_num_days_old THEN     
+      :returncode := 2;
+      RAISE e_old_table;
+   END IF;
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+
+   -------------------------------------------------
+   -- Check creation data for table AI_NAMES
    v_table_name := UPPER('ai_names');
+   v_num_days_old := p_num_days_old;
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
+
+   SELECT   created
+   INTO     v_created_date
+   FROM     all_tables left JOIN all_objects 
+               ON all_tables.owner = all_objects.owner AND
+                  all_tables.table_name = all_objects.object_name
+   WHERE    object_type = 'TABLE' AND
+            all_tables.owner = 'PUR_REPORT' AND
+            table_name = v_table_name;
+
+   IF v_created_date < SYSDATE - v_num_days_old THEN     
+      :returncode := 2;
+      RAISE e_old_table;
+   END IF;
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+
+   -------------------------------------------------
+   -- Check creation data for table CHEM_ADJUVANT
+   v_table_name := UPPER('ai_names');
+   v_num_days_old := p_num_days_old;
 
    DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
 
@@ -44,6 +94,32 @@ BEGIN
    DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
 
 
+   -------------------------------------------------
+   -- Check creation data for table PUR_SITE_GROUPS:
+   v_table_name := UPPER('ai_names');
+   v_num_days_old := 300;
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
+
+   SELECT   created
+   INTO     v_created_date
+   FROM     all_tables left JOIN all_objects 
+               ON all_tables.owner = all_objects.owner AND
+                  all_tables.table_name = all_objects.object_name
+   WHERE    object_type = 'TABLE' AND
+            all_tables.owner = 'PUR_REPORT' AND
+            table_name = v_table_name;
+
+   IF v_created_date < SYSDATE - v_num_days_old THEN     
+      :returncode := 2;
+      RAISE e_old_table;
+   END IF;
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+
+
+  -------------------------------------------------
+   -- Check existence of table PUR_RATES_&&1
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
@@ -64,7 +140,7 @@ END;
 /
 show errors
 
-/*
+
 CREATE TABLE pur_rates_&&1
    (years			VARCHAR2(20),
 	 year				INTEGER,
@@ -155,7 +231,8 @@ BEGIN
 					acre_treated > 0 AND
 					lbs_prd_used > 0 AND
 					pur.unit_treated IN ('A', 'S', 'C', 'K', 'P', 'T', 'U') AND
-					num_years = v_num_years;
+					num_years = v_num_years AND
+               county_cd = '33';
 
 		COMMIT;
 	END LOOP;
@@ -166,7 +243,7 @@ EXCEPTION
 END;
 /
 show errors
-*/
+
 
 EXIT :returncode
 

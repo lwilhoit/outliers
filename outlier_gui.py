@@ -300,13 +300,14 @@ Checkbutton(proc_frame, text="Run Outliers", variable=run_outliers_tk).grid(row=
 run_outliers_tk.set(True)
 
 Checkbutton(proc_frame, text="Outlier Setup", variable=run_outlier_setup_tk).grid(row=3, column=1, sticky='w')
-if run_outliers_tk.get():
-    run_outlier_setup_tk.set(True)
-else:
-    run_outlier_setup_tk.set(False)
+run_outlier_setup_tk.set(False)
+#if run_outliers_tk.get():
+#    run_outlier_setup_tk.set(True)
+#else:
+#    run_outlier_setup_tk.set(False)
 
 Checkbutton(proc_frame, text="Run fixed tables", variable=run_fixed_tables_tk).grid(row=4, column=1, sticky='w')
-run_fixed_tables_tk.set(True)
+run_fixed_tables_tk.set(False)
 
 Checkbutton(proc_frame, text="Run AI num recs", variable=run_ai_num_recs_tk).grid(row=5, column=1, sticky='w')
 run_ai_num_recs_tk.set(True)
@@ -331,7 +332,7 @@ stat_year_tk.set("2018")
 # Number of years?
 Label(param_frame, text="Number of years: ").grid(row=3, column=1, sticky='w')
 Entry(param_frame, width=40, textvariable=num_stat_years_tk).grid(row=3, column=2)
-num_stat_years_tk.set("10")
+num_stat_years_tk.set("1")
 
 # Number of years?
 Label(param_frame, text="Number of days table is considered too old: ").grid(row=4, column=1, sticky='w')

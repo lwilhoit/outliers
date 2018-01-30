@@ -59,6 +59,7 @@ BEGIN
 EXCEPTION
    WHEN e_old_table THEN
       DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.');
+      RAISE; -- RAISE is needed in order to exit this entire script; otherwise, the script will continue with CREATE TABLE ai_num_recs_&&1.
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
 END;
@@ -66,8 +67,6 @@ END;
 show errors
 
 
-
-/*
 CREATE TABLE ai_num_recs_&&1
    (year				INTEGER,
 	 chem_code		INTEGER,
@@ -98,7 +97,8 @@ INSERT INTO ai_num_recs_&&1
 				acre_treated > 0 AND
 				lbs_prd_used > 0 AND
 				unit_treated IN ('A', 'S', 'C', 'K', 'P', 'T', 'U') AND
-				chem_code > 0
+				chem_code > 0 AND
+            county_cd = '33'
 	GROUP BY year, chem_code,
 				CASE WHEN record_id IN ('2', 'C') OR site_code < 100 OR site_code > 29500
 					  THEN 'N' ELSE 'A' END,
@@ -124,7 +124,10 @@ BEGIN
 	WHERE		table_name = 'AI_NUM_RECS_SUM_&&1';
 
 	IF v_table_exists > 0 THEN
-		EXECUTE IMMEDIATE 'DROP TABLE ai_num_recs_sum_&&1';
+		EXECUTE IMMEDIATE 'DROP TABLE AI_NUM_RECS_SUM_&&1';
+      DBMS_OUTPUT.PUT_LINE('Dropped table AI_NUM_RECS_SUM_&&1');
+   ELSE
+      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_SUM_&&1 does not exist; it will be created.');
 	END IF;
 EXCEPTION
    WHEN OTHERS THEN
@@ -193,7 +196,7 @@ CREATE INDEX ai_num_recs_sum_&&1._ndx ON ai_num_recs_sum_&&1
 	(chem_code, ago_ind, unit_treated)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
-*/
+
 
 EXIT :returncode
 
