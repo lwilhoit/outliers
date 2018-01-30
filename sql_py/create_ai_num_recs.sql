@@ -11,11 +11,40 @@ SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 WHENEVER SQLERROR EXIT 1 ROLLBACK
 WHENEVER OSERROR EXIT 1 ROLLBACK
 
+
+variable returncode number;
+
 PROMPT ________________________________________________
 PROMPT Creating AI_NUM_RECS_&&1 table...
 DECLARE
 	v_table_exists		INTEGER := 0;
+   v_table_name      VARCHAR2(100);
+   v_num_days_old    INTEGER := &&3;
+   v_created_date    DATE;
+   e_old_table       EXCEPTION;
 BEGIN
+   :returncode := 0;
+   v_table_name := UPPER('PROD_CHEM_MAJOR_AI');
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table AI_NUM_RECS_&&1');
+
+   SELECT   created
+   INTO     v_created_date
+   FROM     all_tables left JOIN all_objects 
+               ON all_tables.owner = all_objects.owner AND
+                  all_tables.table_name = all_objects.object_name
+   WHERE    object_type = 'TABLE' AND
+            all_tables.owner = 'PUR_REPORT' AND
+            table_name = v_table_name;
+
+
+   IF v_created_date < SYSDATE - v_num_days_old THEN     
+      :returncode := 2;
+      RAISE e_old_table;
+   END IF;
+
+   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
@@ -23,14 +52,22 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE ai_num_recs_&&1';
+      DBMS_OUTPUT.PUT_LINE('Dropped table AI_NUM_RECS_&&1');
+   ELSE
+      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_&&1 does not exist; it will be created.');
 	END IF;
 EXCEPTION
+   WHEN e_old_table THEN
+      DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.');
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
 END;
 /
 show errors
 
+
+
+/*
 CREATE TABLE ai_num_recs_&&1
    (year				INTEGER,
 	 chem_code		INTEGER,
@@ -156,8 +193,8 @@ CREATE INDEX ai_num_recs_sum_&&1._ndx ON ai_num_recs_sum_&&1
 	(chem_code, ago_ind, unit_treated)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+*/
 
-
-EXIT 0
+EXIT :returncode
 
 

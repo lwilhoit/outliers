@@ -4,9 +4,14 @@ Create tables to find high or outlier values in the PUR.
 """ 
 
 # To do:
-#   Print output to screen during long running processes.
-#   I tried doing that in long_running.py and test.sql
-#   but this does not work like I want.
+# 1. Print output to screen during long running processes.
+#    I tried doing that in long_running.py and test.sql
+#    but this does not work like I want.
+# 2. If an Oracle table needed for a script is too old 
+#    (set by parameter num_days_old) ask user if they
+#    still want to use it.  You cannot get user input
+#    from a PL/SQL script, so you need a bit of other
+#    to do that.
 
 import os
 import sys
@@ -45,10 +50,13 @@ password_tk = StringVar() # defines the widget state as string
 
 run_outliers_tk = BooleanVar()
 run_outlier_setup_tk = BooleanVar()
+run_fixed_tables_tk = BooleanVar()
+run_ai_num_recs_tk = BooleanVar()
 run_pur_rates_tk = BooleanVar()
 
 stat_year_tk = IntVar()
 num_stat_years_tk = IntVar()
+num_days_old_tk = IntVar()
 load_from_oracle_tk = BooleanVar()
 
 # Importing function start_procedures does not work
@@ -66,6 +74,8 @@ def call_sql(sql_login, sql_file, *option_list):
     try:
         print("\n", "*"*80)
         print("Running Oracle script", sql_file)
+
+        sql_file = sql_directory+sql_file
 
         sql_options = ''
         for i in option_list:
@@ -105,8 +115,8 @@ def call_ctl(loader_login, load_table):
         print("\n", "*"*80)
         print("Load data into table", load_table.upper())
 
-        ctl_file = load_table + '.ctl'
-        log_file = load_table + '.log'
+        ctl_file = ctl_directory + load_table + '.ctl'
+        log_file = ctl_directory + load_table + '.log'
 
         loader_string = loader_login + ctl_file + ctl_options + log_file
 
@@ -181,10 +191,13 @@ def start_procedures():
 
         run_outliers = run_outliers_tk.get()
         run_outlier_setup = run_outlier_setup_tk.get()
+        run_fixed_tables = run_fixed_tables_tk.get()
+        run_ai_num_recs = run_ai_num_recs_tk.get()
         run_pur_rates = run_pur_rates_tk.get()
 
         stat_year = stat_year_tk.get()
         num_stat_years = num_stat_years_tk.get()
+        num_days_old = num_days_old_tk.get()
         load_from_oracle = load_from_oracle_tk.get()
 
         print("You entered:")
@@ -192,10 +205,13 @@ def start_procedures():
         print("Login Password: " + password)
         print("run_outliers: " + str(run_outliers))
         print("run_outlier_setup: " + str(run_outlier_setup))
+        print("run_fixed_tables: " + str(run_fixed_tables))
+        print("run_ai_num_recs: " + str(run_ai_num_recs))
+        print("run_pur_rates: " + str(run_pur_rates))
         print("Year: " + str(stat_year))
         print("Num of years: " + str(num_stat_years))
+        print("Num of days old: " + str(num_days_old))
         print("load_from_oracle: " + str(load_from_oracle))
-
 
         if run_outliers:
             if run_outlier_setup:
@@ -216,16 +232,19 @@ def start_procedures():
                 call_ctl(loader_login, load_table)
 
 
-            if run_pur_rates:
+            if run_ai_num_recs:
                 #################################################################################
                 # Create tables AI_NUM_RECS_YYYY and AI_NUM_RECS_SUM_YYYY. AI_NUM_RECS_YYYY is an intermediate
                 # table used to create another intermediate table, AI_NUM_RECS_SUM_YYYY, which is used to
                 # create table PUR_RATES_YYYY.
                 sql_file = 'create_ai_num_recs.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old)
 
+            if run_pur_rates:
+                #################################################################################
+                # Create table PUR_RATES_YYYY.
                 sql_file = 'create_pur_rates.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old)
         else:
             print("Outliers not run")
 
@@ -286,7 +305,13 @@ if run_outliers_tk.get():
 else:
     run_outlier_setup_tk.set(False)
 
-Checkbutton(proc_frame, text="Run PUR Rates", variable=run_pur_rates_tk).grid(row=4, column=1, sticky='w')
+Checkbutton(proc_frame, text="Run fixed tables", variable=run_fixed_tables_tk).grid(row=4, column=1, sticky='w')
+run_fixed_tables_tk.set(True)
+
+Checkbutton(proc_frame, text="Run AI num recs", variable=run_ai_num_recs_tk).grid(row=5, column=1, sticky='w')
+run_ai_num_recs_tk.set(True)
+
+Checkbutton(proc_frame, text="Run PUR Rates (need table ai_num_recs for this)", variable=run_pur_rates_tk).grid(row=6, column=1, sticky='w')
 run_pur_rates_tk.set(True)
 
 
@@ -308,8 +333,14 @@ Label(param_frame, text="Number of years: ").grid(row=3, column=1, sticky='w')
 Entry(param_frame, width=40, textvariable=num_stat_years_tk).grid(row=3, column=2)
 num_stat_years_tk.set("10")
 
+# Number of years?
+Label(param_frame, text="Number of days table is considered too old: ").grid(row=4, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_days_old_tk).grid(row=4, column=2)
+num_days_old_tk.set("15")
+
+
 # Load data from the Oracle database?
-Checkbutton(param_frame, text="Load from Oracle", variable=load_from_oracle_tk).grid(row=4, column=1, columnspan=2, sticky='w')
+Checkbutton(param_frame, text="Load from Oracle", variable=load_from_oracle_tk).grid(row=5, column=1, columnspan=2, sticky='w')
 load_from_oracle_tk.set(True)
 
 
