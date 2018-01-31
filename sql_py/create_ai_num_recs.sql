@@ -11,11 +11,14 @@ SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 WHENEVER SQLERROR EXIT 1 ROLLBACK
 WHENEVER OSERROR EXIT 1 ROLLBACK
 
-
+/*
+   For testing I selected records for county_cd = 33 and
+   used all records to create AI_NUM_RECS_SUM__2018.
+ */
 variable returncode number;
 
-PROMPT ________________________________________________
-PROMPT Creating AI_NUM_RECS_&&1 table...
+--PROMPT ________________________________________________
+PROMPT Run procedures to create table AI_NUM_RECS_&&1 ...
 DECLARE
 	v_table_exists		INTEGER := 0;
    v_table_name      VARCHAR2(100);
@@ -23,10 +26,13 @@ DECLARE
    v_created_date    DATE;
    e_old_table       EXCEPTION;
 BEGIN
+   DBMS_OUTPUT.PUT_LINE('First, check that the tables needed to create AI_NUM_RECS_&&1 exist and have been created recently.');
+   DBMS_OUTPUT.PUT_LINE('If any of the tables are older than required for that table, the script will quit.');
+
    :returncode := 0;
    v_table_name := UPPER('PROD_CHEM_MAJOR_AI');
 
-   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table AI_NUM_RECS_&&1');
+   -- DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table AI_NUM_RECS_&&1');
 
    SELECT   created
    INTO     v_created_date
@@ -45,21 +51,27 @@ BEGIN
 
    DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
 
-	SELECT	COUNT(*)
+  -------------------------------------------------
+   -- Check existence of table AI_NUM_RECS_&&1
+   DBMS_OUTPUT.PUT_LINE('__________________________________________________________________________________________________________________');
+   DBMS_OUTPUT.PUT_LINE('Check if table AI_NUM_RECS_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.');
+
+   SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
 	WHERE		table_name = 'AI_NUM_RECS_&&1';
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE ai_num_recs_&&1';
-      DBMS_OUTPUT.PUT_LINE('Dropped table AI_NUM_RECS_&&1');
+      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_&&1 exists, so it was deleted.');
    ELSE
-      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_&&1 does not exist; it will be created.');
+      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_&&1 does not exist.');
 	END IF;
 EXCEPTION
    WHEN e_old_table THEN
       DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.');
-      RAISE; -- RAISE is needed in order to exit this entire script; otherwise, the script will continue with CREATE TABLE ai_num_recs_&&1.
+      RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
+      -- RAISE_APPLICATION_ERROR is needed in order to exit this entire script; otherwise, the script will continue with CREATE TABLE ai_num_recs_&&1.
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
 END;
@@ -67,6 +79,8 @@ END;
 show errors
 
 
+PROMPT ...............................................
+PROMPT Now, create termporary table AI_NUM_RECS_&&1 ...
 CREATE TABLE ai_num_recs_&&1
    (year				INTEGER,
 	 chem_code		INTEGER,
@@ -113,19 +127,21 @@ INSERT INTO ai_num_recs_&&1
 				END;
 
 
-PROMPT ________________________________________________
-PROMPT Creating AI_NUM_RECS_SUM_&&1 table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
-	SELECT	COUNT(*)
+   -- Check existence of table AI_NUM_RECS_SUM_&&1
+   DBMS_OUTPUT.PUT_LINE('__________________________________________________________________________________________________________________');
+   DBMS_OUTPUT.PUT_LINE('Check if table AI_NUM_RECS_SUM_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.');
+
+   SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
 	WHERE		table_name = 'AI_NUM_RECS_SUM_&&1';
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE AI_NUM_RECS_SUM_&&1';
-      DBMS_OUTPUT.PUT_LINE('Dropped table AI_NUM_RECS_SUM_&&1');
+      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_SUM_&&1 exists, so it was deleted.');
    ELSE
       DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_SUM_&&1 does not exist; it will be created.');
 	END IF;
@@ -136,6 +152,8 @@ END;
 /
 show errors
 
+PROMPT .......................................
+PROMPT Now, create table AI_NUM_RECS_SUM_&&1...
 CREATE TABLE ai_num_recs_sum_&&1
    (num_years		INTEGER,
 	 chem_code		INTEGER,
@@ -150,11 +168,12 @@ TABLESPACE pur_report;
 
 DECLARE
 	v_num_years		INTEGER;
+   v_num_recs     INTEGER;
 BEGIN
 	FOR v_num_years IN 1..(&&2) LOOP
-		DBMS_OUTPUT.PUT_LINE('v_num_years = '||v_num_years);
+		--DBMS_OUTPUT.PUT_LINE('v_num_years = '||v_num_years);
 
-		IF v_num_years = 1 THEN
+		IF v_num_years = 1 AND &&2 > 1 THEN
 			INSERT INTO ai_num_recs_sum_&&1
 				SELECT	v_num_years, chem_code, ago_ind, unit_treated, num_recs
 				FROM		ai_num_recs_&&1
@@ -185,6 +204,12 @@ BEGIN
 			COMMIT;
 		END IF;
 	END LOOP;
+
+   SELECT   count(*)
+   INTO     v_num_recs
+   FROM     pur_rates_&&1;
+
+   DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_SUM_&&1 was created, with '||v_num_recs ||' number of recrods.');
 EXCEPTION
   WHEN OTHERS THEN
 	  DBMS_OUTPUT.PUT_LINE(SQLERRM);

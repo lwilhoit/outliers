@@ -16,21 +16,34 @@ Create tables to find high or outlier values in the PUR.
 import os
 import sys
 import subprocess
-import traceback
+# import traceback
 import logging
-logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
-logging.debug('Start of program')
+logging.basicConfig(level=logging.INFO, format='*** %(levelname)s: %(message)s: %(asctime)s' )
+
+#import daiquiri
+#daiquiri.setup()
+#logger = daiquiri.getLogger()
+
+# Logging levels from lowest to highest:
+# DEBUG
+# INFO
+# WARNING
+# ERROR
+# CRITICAL
+
+# So, if you wanted to see only ERROR and CRITICAL logging, set level=logging.ERROR.
+
 # For simple explanation of python logging, see "Automate the boring stuff with Python", p 221
 
 from sys import version_info
 if version_info.major == 2:
     # We are using Python 2.x
-    print("We are using Python 2.x")
+    logging.debug('Start of program, using Python 2.x')
     from Tkinter import *
     # Or: import Tkinter as tk
 elif version_info.major == 3:
     # We are using Python 3.x
-    print("We are using Python 3.x")
+    logging.debug('Start of program, using Python 3.x')
     from tkinter import *
     # import tkinter as tk
 
@@ -70,10 +83,10 @@ def call_sql(sql_login, sql_file, *option_list):
 
         Parameter sql_file is the name of the SQL script to be run.
     """
-    logging.debug('Start of call_sql() using file %s', sql_file)
+    logging.info("\n"+"*"*80)
+    logging.info('Start of call_sql() using file %s', sql_file)
     try:
-        print("\n", "*"*80)
-        print("Running Oracle script", sql_file)
+        logging.debug("Running Oracle script " + sql_file)
 
         sql_file = sql_directory+sql_file
 
@@ -91,8 +104,8 @@ def call_sql(sql_login, sql_file, *option_list):
         stderr_str = response.stderr.decode('UTF-8') 
         print(stdout_str)
         print(stderr_str)
-        print('returncode = ' + str(response.returncode))
-        print('find = ' + str(stdout_str.find('SQL*Plus')))
+        logging.debug('returncode = ' + str(response.returncode))
+        logging.debug('find = ' + str(stdout_str.find('SQL*Plus')))
 
         # sqlplus() does not always return a number > 0 when errors occur,
         # such as when you have an invalid option.
@@ -102,18 +115,21 @@ def call_sql(sql_login, sql_file, *option_list):
         if response.returncode != 0 or stdout_str.find('SQL*Plus') > -1:
             raise Exception
     except Exception as ex:
-        print("Exception raised in procedure call_sql()")
-        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-        message = template.format(type(ex).__name__, ex.args)
-        print(message)
-        print(traceback.format_exc())
+        logging.info("\n")
+        logging.exception('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
+        #logger.error('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
+#       print("Exception raised in procedure call_sql()")
+#       template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+#       message = template.format(type(ex).__name__, ex.args)
+#       print(message)
+#       print(traceback.format_exc())
         sys.exit()
 
 def call_ctl(loader_login, load_table):
-    logging.debug('Start of call_ctl() using table %s', load_table)
+    print("\n" + "*"*80)
+    logging.info('Start of call_ctl() using table %s', load_table)
     try:
-        print("\n", "*"*80)
-        print("Load data into table", load_table.upper())
+        logging.debug("Load data into table " + load_table.upper())
 
         ctl_file = ctl_directory + load_table + '.ctl'
         log_file = ctl_directory + load_table + '.log'
@@ -126,20 +142,23 @@ def call_ctl(loader_login, load_table):
         stderr_str = response.stderr.decode('UTF-8') 
         print(stdout_str)
         print(stderr_str)
-        print('returncode = ' + str(response.returncode))
-        print('find = ' + str(stdout_str.find('SQL*Plus')))
+        logging.debug('returncode = ' + str(response.returncode))
+        logging.debug('find = ' + str(stdout_str.find('SQL*Plus')))
 
         if response.returncode != 0 or stdout_str.find('SQL*Plus') > -1:
             raise Exception
     except Exception as ex:
-        print( "Python script raised an exception running " + ctl_file)
-        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-        message = template.format(type(ex).__name__, ex.args)
-        print(message)
+        logging.info("\n")
+        logging.exception('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
+#       print( "Python script raised an exception running " + ctl_file)
+#       template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+#       message = template.format(type(ex).__name__, ex.args)
+#       print(message)
         sys.exit()
 
 def start_procedures():
-    logging.debug('Start of start_procedures()')
+    logging.info("\n"+"*"*80)
+    logging.info('Start of start_procedures()')
     try:
         # Test to see if these files can be found. If not, the fopen() function
         # will raise a FileNotFoundError exception.
@@ -180,7 +199,8 @@ def start_procedures():
             f = open(file)
             f.close
 
-        print('All files exist.')
+        logging.debug('All files exist.')
+        print("\n")
                 
         userid = userid_tk.get()
         password = password_tk.get()
@@ -200,18 +220,18 @@ def start_procedures():
         num_days_old = num_days_old_tk.get()
         load_from_oracle = load_from_oracle_tk.get()
 
-        print("You entered:")
-        print("User Id: " + userid)
-        print("Login Password: " + password)
-        print("run_outliers: " + str(run_outliers))
-        print("run_outlier_setup: " + str(run_outlier_setup))
-        print("run_fixed_tables: " + str(run_fixed_tables))
-        print("run_ai_num_recs: " + str(run_ai_num_recs))
-        print("run_pur_rates: " + str(run_pur_rates))
-        print("Year: " + str(stat_year))
-        print("Num of years: " + str(num_stat_years))
-        print("Num of days old: " + str(num_days_old))
-        print("load_from_oracle: " + str(load_from_oracle))
+        logging.debug("You entered:")
+        logging.debug("User Id: " + userid)
+        logging.debug("Login Password: " + password)
+        logging.debug("run_outliers: " + str(run_outliers))
+        logging.debug("run_outlier_setup: " + str(run_outlier_setup))
+        logging.debug("run_fixed_tables: " + str(run_fixed_tables))
+        logging.debug("run_ai_num_recs: " + str(run_ai_num_recs))
+        logging.debug("run_pur_rates: " + str(run_pur_rates))
+        logging.debug("Year: " + str(stat_year))
+        logging.debug("Num of years: " + str(num_stat_years))
+        logging.debug("Num of days old: " + str(num_days_old))
+        logging.debug("load_from_oracle: " + str(load_from_oracle))
 
         if run_outliers:
             if run_outlier_setup:
@@ -246,20 +266,22 @@ def start_procedures():
                 sql_file = 'create_pur_rates.sql'
                 call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old)
         else:
-            print("Outliers not run")
+            logging.debug("Outliers not run")
 
-        print("*"*80)
-        print("Procedures have finished.")
+        logging.info("*"*80)
+        logging.info("Procedures have finished.")
     except FileNotFoundError as fnf:
-        print('In start_procedures() this file not found: {}'.format(fnf.filename))
+        logging.debug('In start_procedures() this file not found: {}'.format(fnf.filename))
         sys.exit()
     except Exception as ex:
-        print( "Python script threw an exception running start_procedures().")
-        # root.destroy()
-        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-        message = template.format(type(ex).__name__, ex.args)
-        print(message)
-        print(traceback.format_exc())
+        logging.info("\n")
+        logging.exception('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
+#       print( "Python script threw an exception running start_procedures().")
+#       # root.destroy()
+#       template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+#       message = template.format(type(ex).__name__, ex.args)
+#       print(message)
+#       print(traceback.format_exc())
         sys.exit()
 
 def quit_program():
@@ -337,7 +359,7 @@ num_stat_years_tk.set("1")
 # Number of years?
 Label(param_frame, text="Number of days table is considered too old: ").grid(row=4, column=1, sticky='w')
 Entry(param_frame, width=40, textvariable=num_days_old_tk).grid(row=4, column=2)
-num_days_old_tk.set("15")
+num_days_old_tk.set("100")
 
 
 # Load data from the Oracle database?
