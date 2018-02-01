@@ -14,11 +14,15 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
 /* Create table that groups sites into more general categories,
 	which will be used by the outlier procedures.
  */
+VARIABLE log_level NUMBER;
+
 PROMPT ________________________________________________
 PROMPT Creating PUR_SITE_GROUPS table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
+    :log_level := &&1;
+
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
@@ -26,7 +30,12 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE PUR_SITE_GROUPS';
-	END IF;
+      print_info('Table PUR_SITE_GROUPS exists, so it was deleted.', :log_level);
+      --DBMS_OUTPUT.PUT_LINE('Table PUR_SITE_GROUPS exists, so it was deleted.');
+   ELSE
+      print_info('Table PUR_SITE_GROUPS does not exist.', :log_level);
+   END IF;
+
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -47,6 +56,7 @@ PCTFREE 3
 STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
+PROMPT ________________________________________________
 
 EXIT 0
 

@@ -15,19 +15,34 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
    For testing I selected records for county_cd = 33 and
    used all records to create AI_NUM_RECS_SUM__2018.
  */
-variable returncode number;
+VARIABLE returncode NUMBER;
+VARIABLE log_level NUMBER;
 
---PROMPT ________________________________________________
+/* Levels in the logging module:
+      log_level   level
+      10          DEBUG
+      20          INFO
+      30          WARNING
+      40          ERROR
+      50          CRITICAL
+ */
+
+PROMPT ________________________________________________
 PROMPT Run procedures to create table AI_NUM_RECS_&&1 ...
 DECLARE
 	v_table_exists		INTEGER := 0;
    v_table_name      VARCHAR2(100);
    v_num_days_old    INTEGER := &&3;
    v_created_date    DATE;
+   v_log_level       VARCHAR2(100);
    e_old_table       EXCEPTION;
 BEGIN
-   DBMS_OUTPUT.PUT_LINE('First, check that the tables needed to create AI_NUM_RECS_&&1 exist and have been created recently.');
-   DBMS_OUTPUT.PUT_LINE('If any of the tables are older than required for that table, the script will quit.');
+   :log_level := &&4;
+
+   IF :log_level = 10 THEN
+      DBMS_OUTPUT.PUT_LINE('First, check that the tables needed to create AI_NUM_RECS_&&1 exist and have been created recently.');
+      DBMS_OUTPUT.PUT_LINE('If any of the tables are older than required for that table, the script will quit.');
+   END IF;
 
    :returncode := 0;
    v_table_name := UPPER('PROD_CHEM_MAJOR_AI');
@@ -49,12 +64,16 @@ BEGIN
       RAISE e_old_table;
    END IF;
 
-   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+   IF :log_level BETWEEN 10 AND 50  THEN
+      DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+   END IF;
 
   -------------------------------------------------
    -- Check existence of table AI_NUM_RECS_&&1
-   DBMS_OUTPUT.PUT_LINE('__________________________________________________________________________________________________________________');
-   DBMS_OUTPUT.PUT_LINE('Check if table AI_NUM_RECS_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.');
+   IF :log_level BETWEEN 10 AND 50  THEN
+      DBMS_OUTPUT.PUT_LINE('__________________________________________________________________________________________________________________');
+      DBMS_OUTPUT.PUT_LINE('Check if table AI_NUM_RECS_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.');
+   END IF;
 
    SELECT	COUNT(*)
 	INTO		v_table_exists
@@ -63,7 +82,9 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE ai_num_recs_&&1';
-      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_&&1 exists, so it was deleted.');
+      IF :log_level BETWEEN 10 AND 50 THEN
+         DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_&&1 exists, so it was deleted.');
+      END IF;
    ELSE
       DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_&&1 does not exist.');
 	END IF;
@@ -222,6 +243,7 @@ CREATE INDEX ai_num_recs_sum_&&1._ndx ON ai_num_recs_sum_&&1
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
+PROMPT ________________________________________________
 
 EXIT :returncode
 

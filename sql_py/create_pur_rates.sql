@@ -13,7 +13,7 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
 
 variable returncode number;
 
--- PROMPT ________________________________________________
+PROMPT ________________________________________________
 PROMPT Run procedures to create table PUR_RATES_&&1 ...
 DECLARE
 	v_table_exists		INTEGER := 0;
@@ -146,7 +146,7 @@ BEGIN
 EXCEPTION
    WHEN e_old_table THEN
       DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.');
-      RAISE;
+      RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
 END;
@@ -266,6 +266,7 @@ END;
 /
 show errors
 
+PROMPT ________________________________________________
 
 EXIT :returncode
 

@@ -21,6 +21,7 @@
             Filters=""
             GUID="{545C94BC-721F-4981-565B-6BC83A1F1C8F}">
             <F N="../sql_py/files.sql"/>
+            <F N="sql_py/print_line.sql"/>
             <F N="../sql_py/t2.sql"/>
             <F N="temp.sql"/>
             <F N="../sql_py/test.sql"/>

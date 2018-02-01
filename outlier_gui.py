@@ -18,18 +18,20 @@ import sys
 import subprocess
 # import traceback
 import logging
-logging.basicConfig(level=logging.INFO, format='*** %(levelname)s: %(message)s: %(asctime)s' )
+log_level = logging.DEBUG
+logging.basicConfig(level=log_level, format='*** %(levelname)s: %(message)s: %(asctime)s' )
+
+# Logging levels from lowest to highest:
+# DEBUG     10
+# INFO      20
+# WARNING   30
+# ERROR     40
+# CRITICAL  50
 
 #import daiquiri
 #daiquiri.setup()
 #logger = daiquiri.getLogger()
 
-# Logging levels from lowest to highest:
-# DEBUG
-# INFO
-# WARNING
-# ERROR
-# CRITICAL
 
 # So, if you wanted to see only ERROR and CRITICAL logging, set level=logging.ERROR.
 
@@ -53,6 +55,7 @@ sql_directory = 'sql_py/'
 table_directory = 'tables/'
 ctl_directory = 'sql_py/ctl_files/'
 ctl_options = ' SKIP=1 errors=999999 LOG='
+# ctl_options = ' SKIP=1 errors=999999 '
 
 # Define tkinter variables;
 # Note that you first need to define a variable for Tk().
@@ -62,7 +65,8 @@ userid_tk = StringVar()
 password_tk = StringVar() # defines the widget state as string
 
 run_outliers_tk = BooleanVar()
-run_outlier_setup_tk = BooleanVar()
+run_pur_site_groups_tk = BooleanVar()
+run_adjuvants_tk = BooleanVar()
 run_fixed_tables_tk = BooleanVar()
 run_ai_num_recs_tk = BooleanVar()
 run_pur_rates_tk = BooleanVar()
@@ -83,8 +87,8 @@ def call_sql(sql_login, sql_file, *option_list):
 
         Parameter sql_file is the name of the SQL script to be run.
     """
-    logging.info("\n"+"*"*80)
-    logging.info('Start of call_sql() using file %s', sql_file)
+    print("\n"+"*"*80)
+    logging.critical('Start of call_sql() using file %s', sql_file)
     try:
         logging.debug("Running Oracle script " + sql_file)
 
@@ -115,7 +119,7 @@ def call_sql(sql_login, sql_file, *option_list):
         if response.returncode != 0 or stdout_str.find('SQL*Plus') > -1:
             raise Exception
     except Exception as ex:
-        logging.info("\n")
+        print("\n")
         logging.exception('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
         #logger.error('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
 #       print("Exception raised in procedure call_sql()")
@@ -127,28 +131,31 @@ def call_sql(sql_login, sql_file, *option_list):
 
 def call_ctl(loader_login, load_table):
     print("\n" + "*"*80)
-    logging.info('Start of call_ctl() using table %s', load_table)
+    logging.critical('Start of call_ctl() using table %s', load_table)
     try:
-        logging.debug("Load data into table " + load_table.upper())
+        logging.info("Load data into table " + load_table.upper())
 
-        ctl_file = ctl_directory + load_table + '.ctl'
-        log_file = ctl_directory + load_table + '.log'
+        ctl_file = load_table + '.ctl'
+        log_file = load_table + '.log'
 
         loader_string = loader_login + ctl_file + ctl_options + log_file
 
+        print("\n" + "_"*48)
         response = subprocess.run(loader_string, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)        
 
         stdout_str = response.stdout.decode('UTF-8') 
         stderr_str = response.stderr.decode('UTF-8') 
         print(stdout_str)
         print(stderr_str)
+        print("\n" + "_"*48)
+
         logging.debug('returncode = ' + str(response.returncode))
         logging.debug('find = ' + str(stdout_str.find('SQL*Plus')))
 
         if response.returncode != 0 or stdout_str.find('SQL*Plus') > -1:
             raise Exception
     except Exception as ex:
-        logging.info("\n")
+        print("\n")
         logging.exception('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
 #       print( "Python script raised an exception running " + ctl_file)
 #       template = "An exception of type {0} occurred. Arguments:\n{1!r}"
@@ -157,8 +164,8 @@ def call_ctl(loader_login, load_table):
         sys.exit()
 
 def start_procedures():
-    logging.info("\n"+"*"*80)
-    logging.info('Start of start_procedures()')
+    print("\n"+"*"*80)
+    logging.critical('Start of start_procedures()')
     try:
         # Test to see if these files can be found. If not, the fopen() function
         # will raise a FileNotFoundError exception.
@@ -179,6 +186,7 @@ def start_procedures():
         file_list.append(sql_directory + 'create_pur_site_groups.sql')
         file_list.append(sql_directory + 'outlier_stats.py')
         file_list.append(sql_directory + 'outlier_stats_nonag.py')
+        file_list.append(sql_directory + 'print_line.sql')
 
         file_list.append(ctl_directory + 'ai_group_nonag_stats_append.ctl')
         file_list.append(ctl_directory + 'ai_group_nonag_stats_replace.ctl')
@@ -210,7 +218,8 @@ def start_procedures():
         loader_login = 'cd ' + ctl_directory + ' & sqlldr USERID = ' + userid + tns_service + '/' + password + ' CONTROL='
 
         run_outliers = run_outliers_tk.get()
-        run_outlier_setup = run_outlier_setup_tk.get()
+        run_pur_site_groups = run_pur_site_groups_tk.get()
+        run_adjuvants = run_adjuvants_tk.get()
         run_fixed_tables = run_fixed_tables_tk.get()
         run_ai_num_recs = run_ai_num_recs_tk.get()
         run_pur_rates = run_pur_rates_tk.get()
@@ -224,7 +233,8 @@ def start_procedures():
         logging.debug("User Id: " + userid)
         logging.debug("Login Password: " + password)
         logging.debug("run_outliers: " + str(run_outliers))
-        logging.debug("run_outlier_setup: " + str(run_outlier_setup))
+        logging.debug("run_pur_site_groups: " + str(run_pur_site_groups))
+        logging.debug("run_adjuvants: " + str(run_adjuvants))
         logging.debug("run_fixed_tables: " + str(run_fixed_tables))
         logging.debug("run_ai_num_recs: " + str(run_ai_num_recs))
         logging.debug("run_pur_rates: " + str(run_pur_rates))
@@ -234,12 +244,22 @@ def start_procedures():
         logging.debug("load_from_oracle: " + str(load_from_oracle))
 
         if run_outliers:
-            if run_outlier_setup:
+            if run_pur_site_groups:
                 #################################################################################
-                # Create empty table PUR_SITE_GROUPS
+                # Create empty table PUR_SITE_GROUPS then populate it.
                 sql_file = 'create_pur_site_groups.sql'
-                call_sql(sql_login, sql_file)
+                call_sql(sql_login, sql_file, log_level)
 
+                # Load data into table PUR_SITE_GROUPS
+                load_table = 'pur_site_groups'
+                call_ctl(loader_login, load_table)
+
+
+            if run_adjuvants:
+                #################################################################################
+                # Create tables PROD_ADJUVANT and CHEM_ADJUVANT.
+                sql_file = 'create_adjuvants.sql'
+                call_sql(sql_login, sql_file, log_level)
 
             if run_fixed_tables:
                 #################################################################################
@@ -251,6 +271,9 @@ def start_procedures():
                 load_table = 'fixed_outlier_rates'
                 call_ctl(loader_login, load_table)
 
+                # Create and populate table FIXED_OUTLIER_RATES_AIS
+                # sql_file = 'create_fixed_outlier_rates_ais.sql'
+                # call_sql(sql_login, sql_file)
 
             if run_ai_num_recs:
                 #################################################################################
@@ -258,7 +281,7 @@ def start_procedures():
                 # table used to create another intermediate table, AI_NUM_RECS_SUM_YYYY, which is used to
                 # create table PUR_RATES_YYYY.
                 sql_file = 'create_ai_num_recs.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level)
 
             if run_pur_rates:
                 #################################################################################
@@ -268,13 +291,13 @@ def start_procedures():
         else:
             logging.debug("Outliers not run")
 
-        logging.info("*"*80)
-        logging.info("Procedures have finished.")
+        print("*"*80)
+        logging.critical("Procedures have finished.")
     except FileNotFoundError as fnf:
-        logging.debug('In start_procedures() this file not found: {}'.format(fnf.filename))
+        logging.exception('In start_procedures() this file not found: {}'.format(fnf.filename))
         sys.exit()
     except Exception as ex:
-        logging.info("\n")
+        print("\n")
         logging.exception('Exception of type {0} raised with arguments {1!r}'.format(type(ex).__name__, ex.args))
 #       print( "Python script threw an exception running start_procedures().")
 #       # root.destroy()
@@ -321,22 +344,28 @@ Label(proc_frame, text="Choose which procedures to run", font="TkHeadingFont 12"
 Checkbutton(proc_frame, text="Run Outliers", variable=run_outliers_tk).grid(row=2, column=1, sticky='w')
 run_outliers_tk.set(True)
 
-Checkbutton(proc_frame, text="Outlier Setup", variable=run_outlier_setup_tk).grid(row=3, column=1, sticky='w')
-run_outlier_setup_tk.set(False)
-#if run_outliers_tk.get():
-#    run_outlier_setup_tk.set(True)
-#else:
-#    run_outlier_setup_tk.set(False)
+Checkbutton(proc_frame, text="Create PUR_SITE_GROUPS table", variable=run_pur_site_groups_tk).grid(row=3, column=1, sticky='w')
+run_pur_site_groups_tk.set(True)
 
-Checkbutton(proc_frame, text="Run fixed tables", variable=run_fixed_tables_tk).grid(row=4, column=1, sticky='w')
-run_fixed_tables_tk.set(False)
+Checkbutton(proc_frame, text="Create ADJUVANTS table", variable=run_adjuvants_tk).grid(row=3, column=1, sticky='w')
+run_adjuvants_tk.set(True)
 
-Checkbutton(proc_frame, text="Run AI num recs", variable=run_ai_num_recs_tk).grid(row=5, column=1, sticky='w')
+Checkbutton(proc_frame, text="Create fixed outlier tables", variable=run_fixed_tables_tk).grid(row=4, column=1, sticky='w')
+run_fixed_tables_tk.set(True)
+
+Checkbutton(proc_frame, text="Create AI_NUM_RECS_YYYY table", variable=run_ai_num_recs_tk).grid(row=5, column=1, sticky='w')
 run_ai_num_recs_tk.set(True)
 
-Checkbutton(proc_frame, text="Run PUR Rates (need table ai_num_recs for this)", variable=run_pur_rates_tk).grid(row=6, column=1, sticky='w')
+Checkbutton(proc_frame, text="Create PUR_RATES_YYYY table (need table AI_NUM_RECS for this)", variable=run_pur_rates_tk).grid(row=6, column=1, sticky='w')
 run_pur_rates_tk.set(True)
 
+
+
+# This does not do what I expect:
+#if run_outliers_tk.get():
+#    run_pur_site_groups_tk.set(True)
+#else:
+#    run_pur_site_groups_tk.set(False)
 
 ############################################################
 # Parameter frame

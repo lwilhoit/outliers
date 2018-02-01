@@ -1,0 +1,52 @@
+
+SQL*Loader: Release 12.1.0.2.0 - Production on Thu Feb 1 11:33:38 2018
+
+Copyright (c) 1982, 2014, Oracle and/or its affiliates.  All rights reserved.
+
+Control File:   pur_site_groups.ctl
+Data File:      ../../tables/pur_site_groups.txt
+  Bad File:     pur_site_groups.bad
+  Discard File:  none specified
+ 
+ (Allow all discards)
+
+Number to load: ALL
+Number to skip: 1
+Errors allowed: 999999
+Bind array:     64 rows, maximum of 256000 bytes
+Continuation:    none specified
+Path used:      Conventional
+
+Table PUR_SITE_GROUPS, loaded from every logical record.
+Insert option in effect for this table: TRUNCATE
+TRAILING NULLCOLS option in effect
+
+   Column Name                  Position   Len  Term Encl Datatype
+------------------------------ ---------- ----- ---- ---- ---------------------
+SITE_CODE                           FIRST     *  WHT      CHARACTER            
+SITE_NAME                            NEXT     *  WHT      CHARACTER            
+SITE_GENERAL                         NEXT     *  WHT      CHARACTER            
+SITE_GENERAL1                        NEXT     *  WHT      CHARACTER            
+SITE_GENERAL_AG                      NEXT     *  WHT      CHARACTER            
+
+
+Table PUR_SITE_GROUPS:
+  303 Rows successfully loaded.
+  0 Rows not loaded due to data errors.
+  0 Rows not loaded because all WHEN clauses were failed.
+  0 Rows not loaded because all fields were null.
+
+
+Space allocated for bind array:                  82560 bytes(64 rows)
+Read   buffer bytes: 1048576
+
+Total logical records skipped:          1
+Total logical records read:           303
+Total logical records rejected:         0
+Total logical records discarded:        0
+
+Run began on Thu Feb 01 11:33:38 2018
+Run ended on Thu Feb 01 11:33:39 2018
+
+Elapsed time was:     00:00:01.38
+CPU time was:         00:00:00.06

@@ -46,20 +46,26 @@ CREATE TABLE chem_adjuvant
    NOLOGGING;
 
 */
+VARIABLE log_level NUMBER;
+
 PROMPT ________________________________________________
 PROMPT Create PROD_ADJUVANT table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
-	SELECT	COUNT(*)
+   :log_level := &&1;
+
+   SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
 	WHERE		table_name = 'PROD_ADJUVANT';
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE PROD_ADJUVANT';
-      DBMS_OUTPUT.PUT_LINE('Dropped table PROD_ADJUVANT');
-	END IF;
+      print_info('Table PROD_ADJUVANT exists, so it was deleted.', :log_level);
+   ELSE
+      print_info('Table PROD_ADJUVANT does not exist.', :log_level);
+   END IF;
 
 EXCEPTION
    WHEN OTHERS THEN
@@ -77,6 +83,7 @@ CREATE TABLE prod_adjuvant
    NOLOGGING
    TABLESPACE pur_report;
 
+/*
 INSERT INTO prod_adjuvant
    SELECT   prodno, 'N'
    FROM     product;
@@ -89,6 +96,7 @@ WHERE prodno IN
        WHERE   typepest_cd = 'A0');
 
 COMMIT;
+*/
 
 PROMPT ________________________________________________
 PROMPT Create CHEM_ADJUVANT table...
@@ -102,8 +110,10 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE CHEM_ADJUVANT';
-      DBMS_OUTPUT.PUT_LINE('Dropped table CHEM_ADJUVANT');
-	END IF;
+      print_info('Table CHEM_ADJUVANT exists, so it was deleted.', :log_level);
+   ELSE
+      print_info('Table CHEM_ADJUVANT does not exist.', :log_level);
+   END IF;
 
 EXCEPTION
    WHEN OTHERS THEN
@@ -123,6 +133,7 @@ CREATE TABLE chem_adjuvant
    NOLOGGING
    TABLESPACE pur_report;
 
+/*
 DECLARE
    v_num_ais   INTEGER;
    v_adjuvant  BOOLEAN;
@@ -184,9 +195,12 @@ EXCEPTION
 END;
 /
 show errors
+*/
 
-GRANT SELECT ON prod_adjuvant to public;
-GRANT SELECT ON chem_adjuvant to public;
+--GRANT SELECT ON prod_adjuvant to public;
+--GRANT SELECT ON chem_adjuvant to public;
+
+PROMPT ________________________________________________
 
 EXIT 0
 

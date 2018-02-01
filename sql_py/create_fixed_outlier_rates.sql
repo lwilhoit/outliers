@@ -76,6 +76,8 @@ PCTFREE 3
 STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
+PROMPT ________________________________________________
+
 EXIT 0
 
 
