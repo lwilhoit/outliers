@@ -7,11 +7,13 @@ Create tables to find high or outlier values in the PUR.
 # 1. Print output to screen during long running processes.
 #    I tried doing that in long_running.py and test.sql
 #    but this does not work like I want.
-# 2. If an Oracle table needed for a script is too old 
-#    (set by parameter num_days_old) ask user if they
+# 2. If an Oracle table that is needed for a script is too  
+#    old (set by parameter num_days_old) ask user if they
 #    still want to use it.  You cannot get user input
-#    from a PL/SQL script, so you need a bit of other
-#    to do that.
+#    from a PL/SQL script, so you need some kind of other
+#    code to do that.
+# 3. Change the state of the buttons for different procedures
+#    when the run_outlier button is checked or unchecked.
 
 import os
 import sys
@@ -28,14 +30,16 @@ logging.basicConfig(level=log_level, format='*** %(levelname)s: %(message)s: %(a
 # ERROR     40
 # CRITICAL  50
 
+# So, if you wanted to see only ERROR and CRITICAL logging, set level=logging.ERROR.
+# For simple explanation of python logging, see "Automate the boring stuff with Python", p 221
+
 #import daiquiri
 #daiquiri.setup()
 #logger = daiquiri.getLogger()
 
 
-# So, if you wanted to see only ERROR and CRITICAL logging, set level=logging.ERROR.
-
-# For simple explanation of python logging, see "Automate the boring stuff with Python", p 221
+print("\n"+"*"*80)
+print("*"*80)
 
 from sys import version_info
 if version_info.major == 2:
@@ -67,6 +71,8 @@ password_tk = StringVar() # defines the widget state as string
 run_outliers_tk = BooleanVar()
 run_pur_site_groups_tk = BooleanVar()
 run_adjuvants_tk = BooleanVar()
+run_ai_names_tk = BooleanVar()
+run_prod_chem_major_ai_tk = BooleanVar()
 run_fixed_tables_tk = BooleanVar()
 run_ai_num_recs_tk = BooleanVar()
 run_pur_rates_tk = BooleanVar()
@@ -87,6 +93,7 @@ def call_sql(sql_login, sql_file, *option_list):
 
         Parameter sql_file is the name of the SQL script to be run.
     """
+    print("\n")
     print("\n"+"*"*80)
     logging.critical('Start of call_sql() using file %s', sql_file)
     try:
@@ -130,6 +137,7 @@ def call_sql(sql_login, sql_file, *option_list):
         sys.exit()
 
 def call_ctl(loader_login, load_table):
+    print("\n")
     print("\n" + "*"*80)
     logging.critical('Start of call_ctl() using table %s', load_table)
     try:
@@ -164,6 +172,7 @@ def call_ctl(loader_login, load_table):
         sys.exit()
 
 def start_procedures():
+    print("\n")
     print("\n"+"*"*80)
     logging.critical('Start of start_procedures()')
     try:
@@ -220,6 +229,8 @@ def start_procedures():
         run_outliers = run_outliers_tk.get()
         run_pur_site_groups = run_pur_site_groups_tk.get()
         run_adjuvants = run_adjuvants_tk.get()
+        run_ai_names = run_ai_names_tk.get()
+        run_prod_chem_major_ai = run_prod_chem_major_ai_tk.get()
         run_fixed_tables = run_fixed_tables_tk.get()
         run_ai_num_recs = run_ai_num_recs_tk.get()
         run_pur_rates = run_pur_rates_tk.get()
@@ -235,6 +246,8 @@ def start_procedures():
         logging.debug("run_outliers: " + str(run_outliers))
         logging.debug("run_pur_site_groups: " + str(run_pur_site_groups))
         logging.debug("run_adjuvants: " + str(run_adjuvants))
+        logging.debug("run_ai_names: " + str(run_ai_names))
+        logging.debug("run_prod_chem_major_ai: " + str(run_prod_chem_major_ai))
         logging.debug("run_fixed_tables: " + str(run_fixed_tables))
         logging.debug("run_ai_num_recs: " + str(run_ai_num_recs))
         logging.debug("run_pur_rates: " + str(run_pur_rates))
@@ -254,11 +267,22 @@ def start_procedures():
                 load_table = 'pur_site_groups'
                 call_ctl(loader_login, load_table)
 
-
             if run_adjuvants:
                 #################################################################################
                 # Create tables PROD_ADJUVANT and CHEM_ADJUVANT.
                 sql_file = 'create_adjuvants.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_ai_names:
+                #################################################################################
+                # Create table AI_NAMES.
+                sql_file = 'create_ai_names.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_prod_chem_major_ai:
+                #################################################################################
+                # Create table prod_chem_major_ai.
+                sql_file = 'create_prod_chem_major_ai.sql'
                 call_sql(sql_login, sql_file, log_level)
 
             if run_fixed_tables:
@@ -291,6 +315,8 @@ def start_procedures():
         else:
             logging.debug("Outliers not run")
 
+        print("\n")
+        print("\n")
         print("*"*80)
         logging.critical("Procedures have finished.")
     except FileNotFoundError as fnf:
@@ -341,22 +367,28 @@ Label(proc_frame, text="Choose which procedures to run", font="TkHeadingFont 12"
       grid(row=1, column=1, columnspan=2, padx=2, pady=2)
 
 # Which procedures to run
-Checkbutton(proc_frame, text="Run Outliers", variable=run_outliers_tk).grid(row=2, column=1, sticky='w')
+Checkbutton(proc_frame, text="Run Outliers", font="TkHeadingFont 10", variable=run_outliers_tk).grid(row=2, column=1, sticky='w')
 run_outliers_tk.set(True)
 
-Checkbutton(proc_frame, text="Create PUR_SITE_GROUPS table", variable=run_pur_site_groups_tk).grid(row=3, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create PUR_SITE_GROUPS table", variable=run_pur_site_groups_tk).grid(row=3, column=1, sticky='w')
 run_pur_site_groups_tk.set(True)
 
-Checkbutton(proc_frame, text="Create ADJUVANTS table", variable=run_adjuvants_tk).grid(row=3, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create ADJUVANTS table", variable=run_adjuvants_tk).grid(row=4, column=1, sticky='w')
 run_adjuvants_tk.set(True)
 
-Checkbutton(proc_frame, text="Create fixed outlier tables", variable=run_fixed_tables_tk).grid(row=4, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create AI_NAMES table", variable=run_ai_names_tk).grid(row=5, column=1, sticky='w')
+run_ai_names_tk.set(True)
+
+Checkbutton(proc_frame, text="   Create PROD_CHEM_MAJOR_AI table", variable=run_prod_chem_major_ai_tk).grid(row=6, column=1, sticky='w')
+run_prod_chem_major_ai_tk.set(True)
+
+Checkbutton(proc_frame, text="   Create fixed outlier tables", variable=run_fixed_tables_tk).grid(row=7, column=1, sticky='w')
 run_fixed_tables_tk.set(True)
 
-Checkbutton(proc_frame, text="Create AI_NUM_RECS_YYYY table", variable=run_ai_num_recs_tk).grid(row=5, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create AI_NUM_RECS_YYYY table", variable=run_ai_num_recs_tk).grid(row=8, column=1, sticky='w')
 run_ai_num_recs_tk.set(True)
 
-Checkbutton(proc_frame, text="Create PUR_RATES_YYYY table (need table AI_NUM_RECS for this)", variable=run_pur_rates_tk).grid(row=6, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create PUR_RATES_YYYY table (requires table AI_NUM_RECS)", variable=run_pur_rates_tk).grid(row=9, column=1, sticky='w')
 run_pur_rates_tk.set(True)
 
 

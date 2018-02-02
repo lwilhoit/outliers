@@ -26,12 +26,15 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
 	previous version (which is now renamed ai_names_old).  For new AIs, you need to manually
 	add the "\-" in the names.
  */
+VARIABLE log_level NUMBER;
 
 PROMPT ________________________________________________
 PROMPT Creating table AI_NAMES...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
+   :log_level := &&1;
+
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
@@ -39,8 +42,9 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE ai_names_old';
-      DBMS_OUTPUT.PUT_LINE('Dropped table ai_names_old');
-
+      print_info('Dropped table AI_NAMES_OLD', :log_level);
+   ELSE
+      print_debug('Table AI_NAMES_OLD does not exist.', :log_level);
 	END IF;
 
 	SELECT	COUNT(*)
@@ -50,9 +54,12 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'RENAME ai_names TO ai_names_old';
-		DBMS_OUTPUT.PUT_LINE('Renamed table ai_names');
+		print_info('Renamed table AI_NAMES to AI_NAMES_OLD', :log_level);
+   ELSE
+      print_info('Table AI_NAMES does not exist', :log_level);
 	END IF;
 
+   print_info('Create table AI_NAMES now...', :log_level);
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -772,11 +779,10 @@ INSERT INTO ai_names
 
 COMMIT;
 
-DROP INDEX ai_names_ndx;
 CREATE INDEX ai_names_ndx ON ai_names
    (chem_code);
 
-GRANT SELECT ON ai_names TO PUBLIC;
+-- GRANT SELECT ON ai_names TO PUBLIC;
 
 
 /* Add AI types to specific AIs with general AI.  That is,
@@ -785,6 +791,7 @@ GRANT SELECT ON ai_names TO PUBLIC;
 	no AI type.  As default set the AI types for these
 	specific AIs equal to the AI type for the general AI.
  */
+/*
 PROMPT ________________________________________________
 PROMPT update table AI_CATEGORIES...
 
@@ -845,6 +852,7 @@ SET ai_type_walnut = (SELECT ai_type_walnut FROM ai_names WHERE chem_code = aic.
 WHERE	ai_type_walnut IS NULL;
 
 COMMIT;
+*/
 
 EXIT 0
 

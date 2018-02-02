@@ -19,19 +19,27 @@ SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 WHENEVER SQLERROR EXIT 1 ROLLBACK
 WHENEVER OSERROR EXIT 1 ROLLBACK
 
+VARIABLE log_level NUMBER;
+
 PROMPT ________________________________________________
 PROMPT Creating PROD_CHEM_MAJOR_AI table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
+   :log_level := &&1;
+
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
 	WHERE		table_name = 'PROD_CHEM_MAJOR_AI';
 
-	IF v_table_exists > 0 THEN
-		EXECUTE IMMEDIATE 'DROP TABLE prod_chem_major_ai';
-	END IF;
+   IF v_table_exists > 0 THEN
+      EXECUTE IMMEDIATE 'DROP TABLE prod_chem_major_ai';
+      print_info('Table PROD_CHEM_MAJOR_AI exists, so it was deleted.', :log_level);
+   ELSE
+      print_info('Table PROD_CHEM_MAJOR_AI does not exist.', :log_level);
+   END IF;
+
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -61,6 +69,9 @@ INSERT INTO prod_chem_major_ai
 				0.75*(SELECT MAX(prodchem_pct) FROM prod_chem
 						WHERE prodno = pc.prodno AND chem_code BETWEEN 1 AND 90000 AND chem_code != 486);
 
+COMMIT;
+
+PROMPT ________________________________________________
 
 EXIT 0
 

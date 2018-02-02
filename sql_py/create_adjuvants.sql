@@ -83,7 +83,7 @@ CREATE TABLE prod_adjuvant
    NOLOGGING
    TABLESPACE pur_report;
 
-/*
+
 INSERT INTO prod_adjuvant
    SELECT   prodno, 'N'
    FROM     product;
@@ -96,7 +96,7 @@ WHERE prodno IN
        WHERE   typepest_cd = 'A0');
 
 COMMIT;
-*/
+
 
 PROMPT ________________________________________________
 PROMPT Create CHEM_ADJUVANT table...
@@ -133,9 +133,10 @@ CREATE TABLE chem_adjuvant
    NOLOGGING
    TABLESPACE pur_report;
 
-/*
+
 DECLARE
    v_num_ais   INTEGER;
+   v_num_recs  INTEGER;
    v_adjuvant  BOOLEAN;
 
    -- Get all AIs
@@ -189,13 +190,19 @@ BEGIN
 
    END LOOP;
 
+   SELECT   count(*)
+   INTO     v_num_recs
+   FROM     chem_adjuvant;
+
+   print_info('Table CHEM_ADJUVANT was created, with '||v_num_recs ||' number of recrods.', :log_level);
+
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
 END;
 /
 show errors
-*/
+
 
 --GRANT SELECT ON prod_adjuvant to public;
 --GRANT SELECT ON chem_adjuvant to public;
