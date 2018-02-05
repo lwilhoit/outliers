@@ -1,0 +1,55 @@
+
+SQL*Loader: Release 12.1.0.2.0 - Production on Mon Feb 5 08:04:56 2018
+
+Copyright (c) 1982, 2014, Oracle and/or its affiliates.  All rights reserved.
+
+Control File:   fixed_outlier_lbs_app.ctl
+Data File:      ../../tables/fixed_outlier_lbs_app.txt
+  Bad File:     fixed_outlier_lbs_app.bad
+  Discard File:  none specified
+ 
+ (Allow all discards)
+
+Number to load: ALL
+Number to skip: 1
+Errors allowed: 999999
+Bind array:     64 rows, maximum of 256000 bytes
+Continuation:    none specified
+Path used:      Conventional
+
+Table FIXED_OUTLIER_LBS_APP, loaded from every logical record.
+Insert option in effect for this table: TRUNCATE
+TRAILING NULLCOLS option in effect
+
+   Column Name                  Position   Len  Term Encl Datatype
+------------------------------ ---------- ----- ---- ---- ---------------------
+LBS_AI_APP_TYPE                     FIRST     *  WHT      CHARACTER            
+SITE_TYPE                            NEXT     *  WHT      CHARACTER            
+LBS_AI_APP1                          NEXT     *  WHT      CHARACTER            
+LBS_AI_APP2                          NEXT     *  WHT      CHARACTER            
+LBS_AI_APP3                          NEXT     *  WHT      CHARACTER            
+LOG_LBS_AI_APP1                      NEXT     *  WHT      CHARACTER            
+LOG_LBS_AI_APP2                      NEXT     *  WHT      CHARACTER            
+LOG_LBS_AI_APP3                      NEXT     *  WHT      CHARACTER            
+
+
+Table FIXED_OUTLIER_LBS_APP:
+  16 Rows successfully loaded.
+  0 Rows not loaded due to data errors.
+  0 Rows not loaded because all WHEN clauses were failed.
+  0 Rows not loaded because all fields were null.
+
+
+Space allocated for bind array:                 132096 bytes(64 rows)
+Read   buffer bytes: 1048576
+
+Total logical records skipped:          1
+Total logical records read:            16
+Total logical records rejected:         0
+Total logical records discarded:        0
+
+Run began on Mon Feb 05 08:04:56 2018
+Run ended on Mon Feb 05 08:04:57 2018
+
+Elapsed time was:     00:00:00.81
+CPU time was:         00:00:00.06

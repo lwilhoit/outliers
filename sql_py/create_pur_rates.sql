@@ -25,10 +25,12 @@ DECLARE
    v_created_date    DATE;
    e_old_table       EXCEPTION;
 BEGIN
-   DBMS_OUTPUT.PUT_LINE('First, check that the tables needed to create PUR_RATES_&&1 exist and have been created recently.');
-   DBMS_OUTPUT.PUT_LINE('If any of the tables are older than required for that table, the script will quit.');
-
+   :log_level := &&4;
    :returncode := 0;
+
+   print_info('First, check that the tables needed to create PUR_RATES_&&1 exist and have been created recently.', :log_level);
+   print_info('If any of the tables are older than required for that table, the script will quit.', :log_level);
+
    v_num_days_old1 := 2; -- Number of days table AI_NUM_RECS_SUM_&&1 is old enough to recreate
    v_num_days_old2 := 400; -- Number of days table PUR_SITE_GROUPS is old enough to recreate
 
@@ -36,8 +38,6 @@ BEGIN
    -- This table needs to be created within the last day. 
    v_table_name := UPPER('AI_NUM_RECS_SUM_&&1');
    v_num_days_old := v_num_days_old1;
-
-   -- DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
 
    SELECT   created
    INTO     v_created_date
@@ -53,15 +53,13 @@ BEGIN
       RAISE e_old_table;
    END IF;
 
-   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
 
    -------------------------------------------------
    -- Check creation data for table AI_NAMES
    v_table_name := UPPER('AI_NAMES');
    v_num_days_old := p_num_days_old;
-   --v_num_days_old := v_num_days_old2;
 
-   -- DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
 
    SELECT   created
    INTO     v_created_date
@@ -77,15 +75,12 @@ BEGIN
       RAISE e_old_table;
    END IF;
 
-   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
 
    -------------------------------------------------
    -- Check creation data for table CHEM_ADJUVANT
    v_table_name := UPPER('CHEM_ADJUVANT');
    v_num_days_old := p_num_days_old;
-   --v_num_days_old := v_num_days_old2;
-
-   -- DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
 
    SELECT   created
    INTO     v_created_date
@@ -101,7 +96,7 @@ BEGIN
       RAISE e_old_table;
    END IF;
 
-   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
 
 
    -------------------------------------------------
@@ -109,8 +104,6 @@ BEGIN
    v_table_name := UPPER('PUR_SITE_GROUPS');
    v_num_days_old := v_num_days_old2;
 
-   -- DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' is needed to create table PUR_RATES_&&1');
-
    SELECT   created
    INTO     v_created_date
    FROM     all_tables left JOIN all_objects 
@@ -125,13 +118,13 @@ BEGIN
       RAISE e_old_table;
    END IF;
 
-   DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
 
 
   -------------------------------------------------
    -- Check existence of table PUR_RATES_&&1
-   DBMS_OUTPUT.PUT_LINE('__________________________________________________________________________________________________________________');
-   DBMS_OUTPUT.PUT_LINE('Check if table PUR_RATES_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.');
+   print_info('__________________________________________________________________________________________________________________', :log_level);
+   print_info('Check if table PUR_RATES_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.', :log_level);
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
@@ -139,13 +132,13 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE pur_rates_&&1';
-      DBMS_OUTPUT.PUT_LINE('Table PUR_RATES_&&1 exists, so it was deleted.');
+      print_info('Table PUR_RATES_&&1 exists, so it was deleted.', :log_level);
    ELSE
-      DBMS_OUTPUT.PUT_LINE('Table PUR_RATES_&&1 does not exist.');
+      print_info('Table PUR_RATES_&&1 does not exist.'), :log_level;
 	END IF;
 EXCEPTION
    WHEN e_old_table THEN
-      DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.');
+      print_critical('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.', :log_level);
       RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -257,7 +250,7 @@ BEGIN
    INTO     v_num_recs
    FROM     pur_rates_&&1;
 
-   DBMS_OUTPUT.PUT_LINE('Table pur_rates_&&1 was created, with '||v_num_recs ||' number of recrods.');
+   print_info('Table pur_rates_&&1 was created, with '||v_num_recs ||' number of recrods.', :log_level);
 
 EXCEPTION
 	WHEN OTHERS THEN

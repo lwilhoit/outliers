@@ -108,20 +108,26 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
    1379, 1664, 2173, 2216, 5068
 
  */
+VARIABLE log_level NUMBER;
+
 PROMPT ________________________________________________
 PROMPT Creating FIXED_OUTLIER_RATES_AIS table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
-   SELECT	COUNT(*)
-   INTO		v_table_exists
-   FROM		user_tables
-   WHERE		table_name = 'FIXED_OUTLIER_RATES_AIS_OLD';
+   :log_level := &&3;
+
+	SELECT	COUNT(*)
+	INTO		v_table_exists
+	FROM		user_tables
+	WHERE		table_name = 'FIXED_OUTLIER_RATES_AIS_OLD';
 
    IF v_table_exists > 0 THEN
-      EXECUTE IMMEDIATE 'DROP TABLE FIXED_OUTLIER_RATES_AIS_OLD';
-      DBMS_OUTPUT.PUT_LINE('Dropped table FIXED_OUTLIER_RATES_AIS_OLD');
-   END IF;
+		EXECUTE IMMEDIATE 'DROP TABLE FIXED_OUTLIER_RATES_AIS_OLD';
+      print_info('Dropped table FIXED_OUTLIER_RATES_AIS_OLD', :log_level);
+   ELSE
+      print_debug('Table FIXED_OUTLIER_RATES_AIS_OLD does not exist.', :log_level);
+	END IF;
 
    SELECT	COUNT(*)
    INTO		v_table_exists
@@ -130,8 +136,12 @@ BEGIN
 
    IF v_table_exists > 0 THEN
       EXECUTE IMMEDIATE 'RENAME FIXED_OUTLIER_RATES_AIS TO FIXED_OUTLIER_RATES_AIS_OLD';
-      DBMS_OUTPUT.PUT_LINE('Renamed table FIXED_OUTLIER_RATES_AIS to FIXED_OUTLIER_RATES_AIS_OLD');
+		print_info('Renamed table FIXED_OUTLIER_RATES_AIS to FIXED_OUTLIER_RATES_AIS_OLD', :log_level);
+   ELSE
+      print_info('Table FIXED_OUTLIER_RATES_AIS does not exist', :log_level);
    END IF;
+
+   print_info('Create table FIXED_OUTLIER_RATES_AIS now...', :log_level);
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -153,8 +163,8 @@ STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
 
-PROMPT ________________________________________________
-PROMPT Creating fixed_outlier_rates_stats table...
+PROMPT .................................................
+PROMPT Creating temporary FIXED_OUTLIER_RATES_STATS table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
@@ -163,10 +173,15 @@ BEGIN
 	FROM		user_tables
 	WHERE		table_name = 'FIXED_OUTLIER_RATES_STATS';
 
-	IF v_table_exists > 0 THEN
-		EXECUTE IMMEDIATE 'DROP TABLE FIXED_OUTLIER_RATES_STATS';
-      DBMS_OUTPUT.PUT_LINE('Dropped table FIXED_OUTLIER_RATES_STATS');
-	END IF;
+   IF v_table_exists > 0 THEN
+      EXECUTE IMMEDIATE 'DROP TABLE FIXED_OUTLIER_RATES_STATS';
+      print_info('Table FIXED_OUTLIER_RATES_STATS exists, so it was deleted.', :log_level);
+   ELSE
+      print_info('Table FIXED_OUTLIER_RATES_STATS does not exist.', :log_level);
+   END IF;
+
+   print_info('Create table FIXED_OUTLIER_RATES_STATS now...', :log_level);
+
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -874,7 +889,8 @@ INSERT INTO fixed_outlier_rates_stats
       WHERE    year between (&&1 - &&2 + 1) and &&1 AND
                unit_treated IS NOT NULL AND
                acre_treated > 0 AND
-               lbs_prd_used > 0
+               lbs_prd_used > 0 AND
+               county_cd = '33'
       GROUP BY CASE WHEN pur.record_id IN ('2', 'C') OR pur.site_code < 100 OR pur.site_code > 29500
 						  THEN 'N' ELSE 'A' END,
                CASE WHEN unit_treated = 'S' THEN 'A'
@@ -911,6 +927,7 @@ DECLARE
       FROM     fixed_outlier_rates_stats;
 
 BEGIN
+   print_info('Create table FIXED_OUTLIER_RATES_AIS now...', :log_level);
 
    FOR pur_rec IN pur_cur LOOP
       v_ago_ind := pur_rec.ago_ind;
@@ -999,6 +1016,12 @@ BEGIN
       COMMIT;
    END LOOP;
    COMMIT;
+
+   SELECT   count(*)
+   INTO     v_num_recs
+   FROM     fixed_outlier_rates_ais;
+
+   print_info('Table FIXED_OUTLIER_RATES_AIS was created, with '||v_num_recs ||' number of recrods.', :log_level);
 
 EXCEPTION
    WHEN OTHERS THEN

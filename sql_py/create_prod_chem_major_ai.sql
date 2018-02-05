@@ -40,6 +40,8 @@ BEGIN
       print_info('Table PROD_CHEM_MAJOR_AI does not exist.', :log_level);
    END IF;
 
+   print_info('Create table PROD_CHEM_MAJOR_AI now...', :log_level);
+
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);

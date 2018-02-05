@@ -26,20 +26,26 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
    because of a few extreme outliers, but otherwise typical
    rates are low, so these AIs should be put into low rate group.
  */
+VARIABLE log_level NUMBER;
+
 PROMPT ________________________________________________
 PROMPT Creating fixed_outlier_lbs_app_ais table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
-   SELECT	COUNT(*)
-   INTO		v_table_exists
-   FROM		user_tables
-   WHERE		table_name = 'FIXED_OUTLIER_LBS_APP_AIS_OLD';
+   :log_level := &&3;
+
+	SELECT	COUNT(*)
+	INTO		v_table_exists
+	FROM		user_tables
+	WHERE		table_name = 'FIXED_OUTLIER_LBS_APP_AIS_OLD';
 
    IF v_table_exists > 0 THEN
-      EXECUTE IMMEDIATE 'DROP TABLE FIXED_OUTLIER_LBS_APP_AIS_OLD';
-      DBMS_OUTPUT.PUT_LINE('Dropped table FIXED_OUTLIER_LBS_APP_AIS_OLD');
-   END IF;
+		EXECUTE IMMEDIATE 'DROP TABLE FIXED_OUTLIER_LBS_APP_AIS_OLD';
+      print_info('Dropped table FIXED_OUTLIER_LBS_APP_AIS_OLD', :log_level);
+   ELSE
+      print_debug('Table FIXED_OUTLIER_LBS_APP_AIS_OLD does not exist.', :log_level);
+	END IF;
 
    SELECT	COUNT(*)
    INTO		v_table_exists
@@ -48,8 +54,12 @@ BEGIN
 
    IF v_table_exists > 0 THEN
       EXECUTE IMMEDIATE 'RENAME FIXED_OUTLIER_LBS_APP_AIS TO FIXED_OUTLIER_LBS_APP_AIS_OLD';
-      DBMS_OUTPUT.PUT_LINE('Renamed table FIXED_OUTLIER_LBS_APP_AIS to FIXED_OUTLIER_LBS_APP_AIS_OLD');
+		print_info('Renamed table FIXED_OUTLIER_LBS_APP_AIS to FIXED_OUTLIER_LBS_APP_AIS_OLD', :log_level);
+   ELSE
+      print_info('Table FIXED_OUTLIER_LBS_APP_AIS does not exist', :log_level);
    END IF;
+
+   print_info('Create table FIXED_OUTLIER_LBS_APP_AIS now...', :log_level);
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -77,6 +87,7 @@ DECLARE
    v_num_yyyy_last_8yr  INTEGER;
    v_num_xxxx           INTEGER;
    v_num_yyyy           INTEGER;
+   v_num_recs           INTEGER;
 
    CURSOR pur_cur IS
       SELECT   chem_code, chemname, adjuvant,
@@ -137,7 +148,8 @@ DECLARE
       WHERE    year between (&&1 - &&2 + 1) and &&1 AND
                record_id IN ('2', 'C') AND
       			unit_treated IS NULL AND
-               lbs_prd_used > 0
+               lbs_prd_used > 0 AND
+               county_cd = '33'
       GROUP BY chem_code, chemname, adjuvant,
                CASE WHEN site_general = 'STRUCTURAL PEST CONTROL' THEN 'STRUCTURAL'
                     WHEN site_general = 'LANDSCAPE MAINTENANCE' THEN 'LANDSCAPE'
@@ -212,6 +224,12 @@ BEGIN
       COMMIT;
    END LOOP;
    COMMIT;
+
+   SELECT   count(*)
+   INTO     v_num_recs
+   FROM     fixed_outlier_rates_ais;
+
+   print_info('Table FIXED_OUTLIER_LBS_APP_AIS was created, with '||v_num_recs ||' number of recrods.', :log_level);
 
 EXCEPTION
 	WHEN OTHERS THEN

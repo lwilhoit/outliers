@@ -14,44 +14,40 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
 /* Create table fixed_outlier_rates, which has the fixed outlier limits
    for each ago_ind, unit_treated, ai_rate_type, and site_type.
  */
+VARIABLE log_level NUMBER;
 
 PROMPT ________________________________________________
 PROMPT Creating FIXED_OUTLIER_RATES table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
-   DBMS_OUTPUT.PUT_LINE('Does FIXED_OUTLIER_RATES_OLD exist?');
+   :log_level := &&1;
 
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
 	WHERE		table_name = 'FIXED_OUTLIER_RATES_OLD';
 
-   DBMS_OUTPUT.PUT_LINE('If so, drop FIXED_OUTLIER_RATES_OLD.');
-
    IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE FIXED_OUTLIER_RATES_OLD';
-      DBMS_OUTPUT.PUT_LINE('Dropped table fixed_outlier_rates_old');
+      print_info('Dropped table FIXED_OUTLIER_RATES_OLD', :log_level);
    ELSE
-      DBMS_OUTPUT.PUT_LINE('fixed_outlier_rates_old does not exist');
+      print_debug('Table FIXED_OUTLIER_RATES_OLD does not exist.', :log_level);
 	END IF;
-
-   DBMS_OUTPUT.PUT_LINE('Does FIXED_OUTLIER_RATES exist?');
 
    SELECT	COUNT(*)
    INTO		v_table_exists
    FROM		user_tables
    WHERE		table_name = 'FIXED_OUTLIER_RATES';
 
-   DBMS_OUTPUT.PUT_LINE('If so, rename FIXED_OUTLIER_RATES to FIXED_OUTLIER_RATES_OLD.');
-
    IF v_table_exists > 0 THEN
       EXECUTE IMMEDIATE 'RENAME FIXED_OUTLIER_RATES TO FIXED_OUTLIER_RATES_OLD';
-      DBMS_OUTPUT.PUT_LINE('Renamed table fixed_outlier_rates to fixed_outlier_rates_old');
+		print_info('Renamed table FIXED_OUTLIER_RATES to FIXED_OUTLIER_RATES_OLD', :log_level);
    ELSE
-      DBMS_OUTPUT.PUT_LINE('fixed_outlier_rates does not exist');
+      print_info('Table FIXED_OUTLIER_RATES does not exist', :log_level);
    END IF;
 
+   print_info('Create table FIXED_OUTLIER_RATES now...', :log_level);
 EXCEPTION
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);

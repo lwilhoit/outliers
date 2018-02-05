@@ -13,7 +13,7 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
 
 /*
    For testing I selected records for county_cd = 33 and
-   used all records to create AI_NUM_RECS_SUM__2018.
+   used all records to create AI_NUM_RECS_SUM_2018.
  */
 VARIABLE returncode NUMBER;
 VARIABLE log_level NUMBER;
@@ -40,8 +40,8 @@ BEGIN
    :returncode := 0;
    :log_level := &&4;
 
-   print_info('First, check that the tables needed to create AI_NUM_RECS_&&1 exist and have been created recently.');
-   print_info('If any of the tables are older than required for that table, the script will quit.');
+   print_info('First, check that the tables needed to create AI_NUM_RECS_&&1 exist and have been created recently.', :log_level);
+   print_info('If any of the tables are older than required for that table, the script will quit.', :log_level);
 
    v_table_name := UPPER('PROD_CHEM_MAJOR_AI');
 
@@ -60,12 +60,12 @@ BEGIN
       RAISE e_old_table;
    END IF;
 
-   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.');
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
    
   -------------------------------------------------
    -- Check existence of table AI_NUM_RECS_&&1
-   print_info('__________________________________________________________________________________________________________________');
-   print_info('Check if table AI_NUM_RECS_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.');
+   print_info('__________________________________________________________________________________________________________________', :log_level);
+   print_info('Check if table AI_NUM_RECS_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.', :log_level);
 
    SELECT	COUNT(*)
 	INTO		v_table_exists
@@ -74,13 +74,13 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE ai_num_recs_&&1';
-      print_info('Table AI_NUM_RECS_&&1 exists, so it was deleted.');
+      print_info('Table AI_NUM_RECS_&&1 exists, so it was deleted.', :log_level);
    ELSE
-      print_info('Table AI_NUM_RECS_&&1 does not exist.');
+      print_info('Table AI_NUM_RECS_&&1 does not exist.', :log_level);
 	END IF;
 EXCEPTION
    WHEN e_old_table THEN
-      DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.');
+      print_critical('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.', :log_level);
       RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
       -- RAISE_APPLICATION_ERROR is needed in order to exit this entire script; otherwise, the script will continue with CREATE TABLE ai_num_recs_&&1.
    WHEN OTHERS THEN
@@ -137,14 +137,15 @@ INSERT INTO ai_num_recs_&&1
 					ELSE 'U'
 				END;
 
+COMMIT;
+              
 
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
    -- Check existence of table AI_NUM_RECS_SUM_&&1
-   DBMS_OUTPUT.PUT_LINE('__________________________________________________________________________________________________________________');
-   DBMS_OUTPUT.PUT_LINE('Check if table AI_NUM_RECS_SUM_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.');
-
+   print_info('__________________________________________________________________________________________________________________', :log_level);
+   print_info('Check if table AI_NUM_RECS_SUM_&&1 exists; if it does delete the table so it can be recreated with the current PUR data.', :log_level);
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
@@ -152,9 +153,9 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE AI_NUM_RECS_SUM_&&1';
-      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_SUM_&&1 exists, so it was deleted.');
+      print_info('Table PUR_RATES_AI_NUM_RECS_SUM_&&1 exists, so it was deleted.', :log_level);
    ELSE
-      DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_SUM_&&1 does not exist; it will be created.');
+      print_info('Table AI_NUM_RECS_SUM_&&1 does not exist.', :log_level);
 	END IF;
 EXCEPTION
    WHEN OTHERS THEN
@@ -218,9 +219,9 @@ BEGIN
 
    SELECT   count(*)
    INTO     v_num_recs
-   FROM     pur_rates_&&1;
+   FROM     ai_num_recs_sum_&&1;
 
-   DBMS_OUTPUT.PUT_LINE('Table AI_NUM_RECS_SUM_&&1 was created, with '||v_num_recs ||' number of recrods.');
+   print_info('Table AI_NUM_RECS_SUM_&&1 was created, with '||v_num_recs ||' number of recrods.', :log_level);
 EXCEPTION
   WHEN OTHERS THEN
 	  DBMS_OUTPUT.PUT_LINE(SQLERRM);
