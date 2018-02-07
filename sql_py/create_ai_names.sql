@@ -782,7 +782,6 @@ COMMIT;
 CREATE INDEX ai_names_ndx ON ai_names
    (chem_code);
 
--- GRANT SELECT ON ai_names TO PUBLIC;
 
 
 /* Add AI types to specific AIs with general AI.  That is,
@@ -791,7 +790,9 @@ CREATE INDEX ai_names_ndx ON ai_names
 	no AI type.  As default set the AI types for these
 	specific AIs equal to the AI type for the general AI.
  */
-/*
+&&2
+GRANT SELECT ON ai_names TO PUBLIC;
+
 PROMPT ________________________________________________
 PROMPT update table AI_CATEGORIES...
 
@@ -852,7 +853,7 @@ SET ai_type_walnut = (SELECT ai_type_walnut FROM ai_names WHERE chem_code = aic.
 WHERE	ai_type_walnut IS NULL;
 
 COMMIT;
-*/
+&&3
 
 EXIT 0
 

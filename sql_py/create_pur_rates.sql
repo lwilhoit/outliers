@@ -12,6 +12,7 @@ WHENEVER SQLERROR EXIT 1 ROLLBACK
 WHENEVER OSERROR EXIT 1 ROLLBACK
 
 variable returncode number;
+VARIABLE log_level NUMBER;
 
 PROMPT ________________________________________________
 PROMPT Run procedures to create table PUR_RATES_&&1 ...
@@ -128,7 +129,7 @@ BEGIN
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'PUR_RATES_&&1';
+	WHERE		table_name = UPPER('PUR_RATES_&&1');
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE pur_rates_&&1';
@@ -240,8 +241,9 @@ BEGIN
 					acre_treated > 0 AND
 					lbs_prd_used > 0 AND
 					pur.unit_treated IN ('A', 'S', 'C', 'K', 'P', 'T', 'U') AND
-					num_years = v_num_years AND
-               county_cd = '33';
+					num_years = v_num_years 
+               &&5 AND county_cd = '33' &&6
+               ; 
 
 		COMMIT;
 	END LOOP;

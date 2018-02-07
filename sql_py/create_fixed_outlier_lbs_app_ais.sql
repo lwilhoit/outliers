@@ -148,8 +148,8 @@ DECLARE
       WHERE    year between (&&1 - &&2 + 1) and &&1 AND
                record_id IN ('2', 'C') AND
       			unit_treated IS NULL AND
-               lbs_prd_used > 0 AND
-               county_cd = '33'
+               lbs_prd_used > 0 
+               &&4 AND county_cd = '26' &&5
       GROUP BY chem_code, chemname, adjuvant,
                CASE WHEN site_general = 'STRUCTURAL PEST CONTROL' THEN 'STRUCTURAL'
                     WHEN site_general = 'LANDSCAPE MAINTENANCE' THEN 'LANDSCAPE'

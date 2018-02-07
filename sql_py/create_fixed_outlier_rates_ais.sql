@@ -889,8 +889,8 @@ INSERT INTO fixed_outlier_rates_stats
       WHERE    year between (&&1 - &&2 + 1) and &&1 AND
                unit_treated IS NOT NULL AND
                acre_treated > 0 AND
-               lbs_prd_used > 0 AND
-               county_cd = '33'
+               lbs_prd_used > 0 
+               &&4 AND county_cd = '26' &&5
       GROUP BY CASE WHEN pur.record_id IN ('2', 'C') OR pur.site_code < 100 OR pur.site_code > 29500
 						  THEN 'N' ELSE 'A' END,
                CASE WHEN unit_treated = 'S' THEN 'A'

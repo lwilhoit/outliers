@@ -11,7 +11,8 @@ SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 WHENEVER SQLERROR EXIT 1 ROLLBACK
 WHENEVER OSERROR EXIT 1 ROLLBACK
 
-variable returncode number;
+variable returncode NUMBER;
+VARIABLE log_level NUMBER;
 
 PROMPT ________________________________________________
 PROMPT Creating PUR_RATES_NONAG_&&1 table...
@@ -24,19 +25,19 @@ DECLARE
    v_num_days_old2   INTEGER;
    v_created_date    DATE;
    e_old_table       EXCEPTION;
-EGIN
+BEGIN
    :log_level := &&4;
    :returncode := 0;
 
-   print_info('First, check that the tables needed to create PUR_RATES_&&1 exist and have been created recently.', :log_level);
+   print_info('First, check that the tables needed to create PUR_RATES_NONAG_&&1 exist and have been created recently.', :log_level);
    print_info('If any of the tables are older than required for that table, the script will quit.', :log_level);
 
-   v_num_days_old1 := 2; -- Number of days table AI_NUM_RECS_SUM_&&1 is old enough to recreate
+   v_num_days_old1 := 2; -- Number of days table AI_NUM_RECS_NONAG_SUM_&&1 is old enough to recreate
    v_num_days_old2 := 400; -- Number of days table PUR_SITE_GROUPS is old enough to recreate
 
-   -- Check creation data for table AI_NUM_RECS_SUM_NONAG_&&1.
+   -- Check creation data for table AI_NUM_RECS_NONAG_SUM_&&1.
    -- This table needs to be created within the last day. 
-   v_table_name := UPPER('AI_NUM_RECS_SUM_NONAG_&&1');
+   v_table_name := UPPER('AI_NUM_RECS_NONAG_SUM_&&1');
    v_num_days_old := v_num_days_old1;
 
    SELECT   created
@@ -129,7 +130,7 @@ EGIN
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'PUR_RATES_NONAG_&&1';
+	WHERE		table_name = UPPER('PUR_RATES_NONAG_&&1');
 
    IF v_table_exists > 0 THEN
       EXECUTE IMMEDIATE 'DROP TABLE PUR_RATES_NONAG_&&1';
@@ -200,7 +201,9 @@ BEGIN
 		WHERE		year BETWEEN (&&1 - v_num_years + 1) AND &&1 AND
 					record_id IN ('2', 'C') AND
 					lbs_prd_used > 0 AND
-					num_years = v_num_years;
+					num_years = v_num_years 
+               &&5 AND county_cd = '33' &&6
+               ; 
 
 		COMMIT;
 	END LOOP;

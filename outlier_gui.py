@@ -77,7 +77,8 @@ password_tk = StringVar() # defines the widget state as string
 
 run_outliers_tk = BooleanVar()
 run_pur_site_groups_tk = BooleanVar()
-run_adjuvants_tk = BooleanVar()
+run_prod_adjuvants_tk = BooleanVar()
+run_chem_adjuvants_tk = BooleanVar()
 run_ai_names_tk = BooleanVar()
 run_prod_chem_major_ai_tk = BooleanVar()
 run_fixed_rates_tk = BooleanVar()
@@ -94,6 +95,7 @@ num_stat_years_tk = IntVar()
 num_fixed_years_tk = IntVar()
 num_days_old_tk = IntVar()
 load_from_oracle_tk = BooleanVar()
+testing_tk = BooleanVar()
 
 # Importing function start_procedures does not work
 #import start
@@ -192,7 +194,8 @@ def start_procedures():
         # Test to see if these files can be found. If not, the fopen() function
         # will raise a FileNotFoundError exception.
         file_list = []
-        file_list.append(sql_directory + 'create_adjuvants.sql')
+        file_list.append(sql_directory + 'create_chem_adjuvants.sql')
+        file_list.append(sql_directory + 'create_prod_adjuvants.sql')
         file_list.append(sql_directory + 'create_ai_groups_ai_outlier_stats.sql')
         file_list.append(sql_directory + 'create_ai_groups_ai_outlier_stats_nonag.sql')
         file_list.append(sql_directory + 'create_ai_names.sql')
@@ -242,7 +245,8 @@ def start_procedures():
 
         run_outliers = run_outliers_tk.get()
         run_pur_site_groups = run_pur_site_groups_tk.get()
-        run_adjuvants = run_adjuvants_tk.get()
+        run_chem_adjuvants = run_chem_adjuvants_tk.get()
+        run_prod_adjuvants = run_prod_adjuvants_tk.get()
         run_ai_names = run_ai_names_tk.get()
         run_prod_chem_major_ai = run_prod_chem_major_ai_tk.get()
         run_fixed_rates = run_fixed_rates_tk.get()
@@ -259,13 +263,15 @@ def start_procedures():
         num_fixed_years = num_fixed_years_tk.get()
         num_days_old = num_days_old_tk.get()
         load_from_oracle = load_from_oracle_tk.get()
+        testing = testing_tk.get()
 
         logging.debug("You entered:")
         logging.debug("User Id: " + userid)
         logging.debug("Login Password: " + password)
         logging.debug("run_outliers: " + str(run_outliers))
         logging.debug("run_pur_site_groups: " + str(run_pur_site_groups))
-        logging.debug("run_adjuvants: " + str(run_adjuvants))
+        logging.debug("run_prod_adjuvants: " + str(run_prod_adjuvants))
+        logging.debug("run_chem_adjuvants: " + str(run_chem_adjuvants))
         logging.debug("run_ai_names: " + str(run_ai_names))
         logging.debug("run_prod_chem_major_ai: " + str(run_prod_chem_major_ai))
         logging.debug("run_fixed_rates: " + str(run_fixed_rates))
@@ -277,6 +283,19 @@ def start_procedures():
         logging.debug("Num of years in fixed tables: " + str(num_fixed_years))
         logging.debug("Num of days old: " + str(num_days_old))
         logging.debug("load_from_oracle: " + str(load_from_oracle))
+        logging.debug("testing: " + str(testing))
+
+        # While testing the code, set testing = True. This will cause the scripts to create small tables,
+        # mostly by runing for few years for Riverside County (county_cd = 33) which will cause the 
+        # scripts to run much faster.
+        # When ready for running the prodcution code, set testing = False.
+
+        if testing:
+            comment1 = "' '"
+            comment2 = "' '"
+        else:
+            comment1 = '/*'
+            comment2 = '*/'
 
         if run_outliers:
             if run_pur_site_groups:
@@ -289,17 +308,29 @@ def start_procedures():
                 load_table = 'pur_site_groups'
                 call_ctl(loader_login, load_table)
 
-            if run_adjuvants:
+            if run_prod_adjuvants:
                 #################################################################################
-                # Create tables PROD_ADJUVANT and CHEM_ADJUVANT.
-                sql_file = 'create_adjuvants.sql'
+                # Create table PROD_ADJUVANT.
+                sql_file = 'create_prod_adjuvants.sql'
                 call_sql(sql_login, sql_file, log_level)
+
+            if run_chem_adjuvants:
+                #################################################################################
+                # Create table CHEM_ADJUVANT. The testing version is a different script
+                # because creating the normal table takes such a long time.
+                # The testing script just copies the table from CHEM_ADJUVANT_BACKUP.
+                if testing:
+                    sql_file = 'create_chem_adjuvants_testing.sql'
+                    call_sql(sql_login, sql_file, log_level)
+                else:
+                    sql_file = 'create_chem_adjuvants.sql'
+                    call_sql(sql_login, sql_file, log_level)
 
             if run_ai_names:
                 #################################################################################
                 # Create table AI_NAMES.
                 sql_file = 'create_ai_names.sql'
-                call_sql(sql_login, sql_file, log_level)
+                call_sql(sql_login, sql_file, log_level, comment1, comment2)
 
             if run_prod_chem_major_ai:
                 #################################################################################
@@ -321,7 +352,7 @@ def start_procedures():
                 #################################################################################
                 # Create and populate table FIXED_OUTLIER_RATES_AIS
                 sql_file = 'create_fixed_outlier_rates_ais.sql'
-                call_sql(sql_login, sql_file, stat_year, num_fixed_years, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_fixed_years, log_level, comment1, comment2)
 
             if run_fixed_lbs_app:
                 #################################################################################
@@ -337,7 +368,7 @@ def start_procedures():
                 #################################################################################
                 # Create and populate table FIXED_OUTLIER_LBS_APP_AIS
                 sql_file = 'create_fixed_outlier_lbs_app_ais.sql'
-                call_sql(sql_login, sql_file, stat_year, num_fixed_years, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_fixed_years, log_level, comment1, comment2)
 
             if run_ai_num_recs:
                 #################################################################################
@@ -345,13 +376,13 @@ def start_procedures():
                 # table used to create another intermediate table, AI_NUM_RECS_SUM_YYYY, which is used to
                 # create table PUR_RATES_YYYY.
                 sql_file = 'create_ai_num_recs.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
 
             if run_pur_rates:
                 #################################################################################
                 # Create table PUR_RATES_YYYY.
                 sql_file = 'create_pur_rates.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
 
             if run_ai_num_recs_nonag:
                 #################################################################################
@@ -359,13 +390,14 @@ def start_procedures():
                 # table used to create another intermediate table, AI_NUM_RECS_SUM_YYYY, which is used to
                 # create table PUR_RATES_NONAG_YYYY.
                 sql_file = 'create_ai_num_recs_nonag.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level)
+                # call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
 
             if run_pur_rates_nonag:
                 #################################################################################
                 # Create table PUR_RATES_NONAG_YYYY.
                 sql_file = 'create_pur_rates_nonag.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
 
         else:
             logging.debug("Outliers not run")
@@ -428,37 +460,40 @@ run_outliers_tk.set(True)
 Checkbutton(proc_frame, text="   Create PUR_SITE_GROUPS table", variable=run_pur_site_groups_tk).grid(row=3, column=1, sticky='w')
 run_pur_site_groups_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create ADJUVANTS table", variable=run_adjuvants_tk).grid(row=4, column=1, sticky='w')
-run_adjuvants_tk.set(True)
+Checkbutton(proc_frame, text="   Create PROD_ADJUVANTS table", variable=run_prod_adjuvants_tk).grid(row=4, column=1, sticky='w')
+run_prod_adjuvants_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create AI_NAMES table", variable=run_ai_names_tk).grid(row=5, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create CHEM_ADJUVANTS table", variable=run_chem_adjuvants_tk).grid(row=5, column=1, sticky='w')
+run_chem_adjuvants_tk.set(True)
+
+Checkbutton(proc_frame, text="   Create AI_NAMES table", variable=run_ai_names_tk).grid(row=6, column=1, sticky='w')
 run_ai_names_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create PROD_CHEM_MAJOR_AI table", variable=run_prod_chem_major_ai_tk).grid(row=6, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create PROD_CHEM_MAJOR_AI table", variable=run_prod_chem_major_ai_tk).grid(row=7, column=1, sticky='w')
 run_prod_chem_major_ai_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_RATES table", variable=run_fixed_rates_tk).grid(row=7, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_RATES table", variable=run_fixed_rates_tk).grid(row=8, column=1, sticky='w')
 run_fixed_rates_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_RATES_AIS table", variable=run_fixed_rates_ais_tk).grid(row=8, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_RATES_AIS table", variable=run_fixed_rates_ais_tk).grid(row=9, column=1, sticky='w')
 run_fixed_rates_ais_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_LBS_APP table", variable=run_fixed_lbs_app_tk).grid(row=9, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_LBS_APP table", variable=run_fixed_lbs_app_tk).grid(row=10, column=1, sticky='w')
 run_fixed_lbs_app_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_LBS_APP_AIS table", variable=run_fixed_lbs_app_ais_tk).grid(row=10, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_LBS_APP_AIS table", variable=run_fixed_lbs_app_ais_tk).grid(row=11, column=1, sticky='w')
 run_fixed_lbs_app_ais_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create AI_NUM_RECS_YYYY table", variable=run_ai_num_recs_tk).grid(row=11, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create AI_NUM_RECS_YYYY table", variable=run_ai_num_recs_tk).grid(row=12, column=1, sticky='w')
 run_ai_num_recs_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create PUR_RATES_YYYY table (requires table AI_NUM_RECS)", variable=run_pur_rates_tk).grid(row=12, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create PUR_RATES_YYYY table (requires table AI_NUM_RECS)", variable=run_pur_rates_tk).grid(row=13, column=1, sticky='w')
 run_pur_rates_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create AI_NUM_RECS_NONAG_YYYY table", variable=run_ai_num_recs_nonag_tk).grid(row=13, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create AI_NUM_RECS_NONAG_YYYY table", variable=run_ai_num_recs_nonag_tk).grid(row=14, column=1, sticky='w')
 run_ai_num_recs_nonag_tk.set(True)
 
-Checkbutton(proc_frame, text="   Create PUR_RATES_NONAG_YYYY table (requires table AI_NUM_RECS_NONAG)", variable=run_pur_rates_nonag_tk).grid(row=14, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create PUR_RATES_NONAG_YYYY table (requires table AI_NUM_RECS_NONAG)", variable=run_pur_rates_nonag_tk).grid(row=15, column=1, sticky='w')
 run_pur_rates_nonag_tk.set(True)
 
 
@@ -491,7 +526,7 @@ num_stat_years_tk.set("1")
 # Number of years in fixed tables?
 Label(param_frame, text="Number of years for fixed tables: ").grid(row=4, column=1, sticky='w')
 Entry(param_frame, width=40, textvariable=num_fixed_years_tk).grid(row=4, column=2)
-num_fixed_years_tk.set("10")
+num_fixed_years_tk.set("9")
 
 # Number of days table old?
 Label(param_frame, text="Number of days table is considered too old: ").grid(row=5, column=1, sticky='w')
@@ -502,6 +537,10 @@ num_days_old_tk.set("100")
 # Load data from the Oracle database?
 Checkbutton(param_frame, text="Load from Oracle", variable=load_from_oracle_tk).grid(row=6, column=1, columnspan=2, sticky='w')
 load_from_oracle_tk.set(True)
+
+# Testing?
+Checkbutton(param_frame, text="Run testing scripts", variable=testing_tk).grid(row=7, column=1, columnspan=2, sticky='w')
+testing_tk.set(True)
 
 
 

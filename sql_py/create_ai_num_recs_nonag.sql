@@ -23,6 +23,7 @@ DECLARE
    v_created_date    DATE;
    v_log_level       VARCHAR2(100);
    e_old_table       EXCEPTION;
+   v_dummy           VARCHAR2(10);
 BEGIN
    :returncode := 0;
    :log_level := &&4;
@@ -57,7 +58,7 @@ BEGIN
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'ai_num_recs_nonag_sum_&&1';
+	WHERE		table_name = UPPER('AI_NUM_RECS_NONAG_&&1');
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE AI_NUM_RECS_NONAG_&&1';
@@ -93,13 +94,13 @@ INSERT INTO ai_num_recs_nonag_&&1
 	WHERE		year BETWEEN (&&1 - &&2 + 1) AND &&1 AND
 				record_id IN ('2', 'C') AND
 				lbs_prd_used > 0 AND
-				chem_code > 0 AND
-            county_cd = '33'
+				chem_code > 0 
+            &&5 AND county_cd = '33' &&6
 	GROUP BY year, chem_code;
 
 COMMIT;
 
-
+ 
 PROMPT ________________________________________________
 PROMPT Creating AI_NUM_RECS_NONAG_SUM_&&1 table...
 DECLARE
@@ -110,7 +111,7 @@ BEGIN
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'AI_NUM_RECS_NONAG_SUM_&&1';
+	WHERE		table_name = UPPER('AI_NUM_RECS_NONAG_SUM_&&1');
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE AI_NUM_RECS_NONAG_SUM_&&1';
@@ -142,7 +143,7 @@ BEGIN
 	FOR v_num_years IN 1..(&&2) LOOP
 		DBMS_OUTPUT.PUT_LINE('v_num_years = '||v_num_years);
 
-		IF v_num_years = 1 THEN
+		IF v_num_years = 1 AND &&2 > 1 THEN
 			INSERT INTO ai_num_recs_nonag_sum_&&1
 				SELECT	v_num_years, chem_code, num_recs
 				FROM		ai_num_recs_nonag_&&1
@@ -178,7 +179,7 @@ BEGIN
    INTO     v_num_recs
    FROM     ai_num_recs_nonag_sum_&&1;
 
-   print_info('Table AI_NUM_RECS_NONAG_SUM_&&1 was created, with '||v_num_recs ||' number of recrods.', :log_level);
+   print_info('Table AI_NUM_RECS_NONAG_SUM_&&1 was created, with '||v_num_recs ||' number of records.', :log_level);
 EXCEPTION
   WHEN OTHERS THEN
 	  DBMS_OUTPUT.PUT_LINE(SQLERRM);
@@ -190,6 +191,7 @@ CREATE INDEX ai_num_recs_nonag_sum_&&1._ndx ON ai_num_recs_nonag_sum_&&1
 	(chem_code)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
 
 PROMPT ________________________________________________
 

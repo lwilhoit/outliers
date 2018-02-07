@@ -70,7 +70,7 @@ BEGIN
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'AI_NUM_RECS_&&1';
+	WHERE		table_name = UPPER('AI_NUM_RECS_&&1');
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE ai_num_recs_&&1';
@@ -122,8 +122,8 @@ INSERT INTO ai_num_recs_&&1
 				acre_treated > 0 AND
 				lbs_prd_used > 0 AND
 				unit_treated IN ('A', 'S', 'C', 'K', 'P', 'T', 'U') AND
-				chem_code > 0 AND
-            county_cd = '33'
+				chem_code > 0 
+            &&5 AND county_cd = '33' &&6
 	GROUP BY year, chem_code,
 				CASE WHEN record_id IN ('2', 'C') OR site_code < 100 OR site_code > 29500
 					  THEN 'N' ELSE 'A' END,
@@ -149,7 +149,7 @@ BEGIN
    SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'AI_NUM_RECS_SUM_&&1';
+	WHERE		table_name = UPPER('AI_NUM_RECS_SUM_&&1');
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'DROP TABLE AI_NUM_RECS_SUM_&&1';

@@ -13,6 +13,7 @@
             <F N="outlier.py"/>
             <F N="start.py"/>
             <F N="t.py"/>
+            <F N="sql_py/t3.py"/>
             <F N="temp1.py"/>
             <F N="tknew.py"/>
         </Folder>
@@ -23,6 +24,7 @@
             <F N="../sql_py/files.sql"/>
             <F N="sql_py/print_line.sql"/>
             <F N="../sql_py/t2.sql"/>
+            <F N="sql_py/t3.sql"/>
             <F N="temp.sql"/>
             <F N="../sql_py/test.sql"/>
         </Folder>
