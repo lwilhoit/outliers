@@ -32,9 +32,7 @@ Create tables to find high or outlier values in the PUR.
 #   
 
 
-
-import os
-import sys
+import outlier_stats as outs
 import subprocess
 # import traceback
 import logging
@@ -79,6 +77,19 @@ ctl_directory = 'sql_py/ctl_files/'
 ctl_options = ' SKIP=1 errors=999999 LOG='
 # ctl_options = ' SKIP=1 errors=999999 '
 
+# When loading data into the Oracle tables AI_GROUP_STATS and AI_OUTLIER_STATS
+# if you want to replace the data already in these tables, set
+replace_oracle_tables = True
+# If you want to add data to existing tables, set
+append_oracle_tables = False
+# If you don't want to do either set both parameters = False
+# replace_oracle_tables = True
+# append_oracle_tables = False
+
+# If you want to update Oracle table PUR_RATE_YYYY with new values for ai_groups, set
+update_pur_rates = False 
+
+
 # Define tkinter variables;
 # Note that you first need to define a variable for Tk().
 root = Tk()
@@ -100,6 +111,8 @@ run_ai_num_recs_tk = BooleanVar()
 run_pur_rates_tk = BooleanVar()
 run_ai_num_recs_nonag_tk = BooleanVar()
 run_pur_rates_nonag_tk = BooleanVar()
+run_stats_tables_tk = BooleanVar()
+run_outlier_stats_tk = BooleanVar()
 
 stat_year_tk = IntVar()
 num_stat_years_tk = IntVar()
@@ -107,7 +120,7 @@ num_fixed_years_tk = IntVar()
 num_days_old1_tk = IntVar()
 num_days_old2_tk = IntVar()
 num_days_old3_tk = IntVar()
-load_from_oracle_tk = BooleanVar()
+load_oracle_tk = BooleanVar()
 testing_tk = BooleanVar()
 
 # Importing function start_procedures does not work
@@ -215,6 +228,8 @@ def start_procedures():
         # Test to see if these files can be found. If not, the fopen() function
         # will raise a FileNotFoundError exception.
         file_list = []
+        file_list.append('outlier_stats.py')
+        file_list.append('outlier_stats_nonag.py')
         file_list.append(sql_directory + 'create_chem_adjuvants.sql')
         file_list.append(sql_directory + 'create_prod_adjuvants.sql')
         file_list.append(sql_directory + 'create_ai_groups_ai_outlier_stats.sql')
@@ -231,8 +246,6 @@ def start_procedures():
         file_list.append(sql_directory + 'create_pur_rates.sql')
         file_list.append(sql_directory + 'create_pur_rates_nonag.sql')
         file_list.append(sql_directory + 'create_pur_site_groups.sql')
-        file_list.append(sql_directory + 'outlier_stats.py')
-        file_list.append(sql_directory + 'outlier_stats_nonag.py')
         file_list.append(sql_directory + 'print_line.sql')
 
         file_list.append(ctl_directory + 'ai_group_nonag_stats_append.ctl')
@@ -260,9 +273,11 @@ def start_procedures():
         userid = userid_tk.get()
         password = password_tk.get()
 
+        user_login = userid + '/' + password + tns_service
+        # user_login = userid + tns_service + '/' + password
         # sqlplus option -S suppresses of sqlplus banner; -L attempts to log on only once, which is needed to catch errors in this python script.
-        sql_login = 'sqlplus -S -L ' + userid + tns_service + '/' + password + ' '
-        loader_login = 'cd ' + ctl_directory + ' & sqlldr USERID = ' + userid + tns_service + '/' + password + ' CONTROL='
+        sql_login = 'sqlplus -S -L ' + user_login + ' '
+        loader_login = 'cd ' + ctl_directory + ' & sqlldr USERID = ' + user_login + ' CONTROL='
 
         run_outliers = run_outliers_tk.get()
         run_pur_site_groups = run_pur_site_groups_tk.get()
@@ -278,6 +293,8 @@ def start_procedures():
         run_pur_rates = run_pur_rates_tk.get()
         run_ai_num_recs_nonag = run_ai_num_recs_nonag_tk.get()
         run_pur_rates_nonag = run_pur_rates_nonag_tk.get()
+        run_stats_tables = run_stats_tables_tk.get()
+        run_outlier_stats = run_outlier_stats_tk.get()
 
         stat_year = stat_year_tk.get()
         num_stat_years = num_stat_years_tk.get()
@@ -285,12 +302,13 @@ def start_procedures():
         num_days_old1 = num_days_old1_tk.get()
         num_days_old2 = num_days_old2_tk.get()
         num_days_old3 = num_days_old3_tk.get()
-        load_from_oracle = load_from_oracle_tk.get()
+        load_oracle = load_oracle_tk.get()
         testing = testing_tk.get()
 
         logging.debug("You entered:")
         logging.debug("User Id: " + userid)
         logging.debug("Login Password: " + password)
+        logging.debug("User login: " + user_login)
         logging.debug("run_outliers: " + str(run_outliers))
         logging.debug("run_pur_site_groups: " + str(run_pur_site_groups))
         logging.debug("run_prod_adjuvants: " + str(run_prod_adjuvants))
@@ -301,11 +319,13 @@ def start_procedures():
         logging.debug("run_ai_num_recs: " + str(run_ai_num_recs))
         logging.debug("run_pur_rates: " + str(run_pur_rates))
         logging.debug("run_pur_rates_nonag: " + str(run_pur_rates_nonag))
+        logging.debug("run_stats_tables: " + str(run_stats_tables))
+        logging.debug("run_outlier_stats: " + str(run_outlier_stats))
         logging.debug("Year: " + str(stat_year))
         logging.debug("Num of years in PUR_RATES: " + str(num_stat_years))
         logging.debug("Num of years in fixed tables: " + str(num_fixed_years))
         logging.debug("Num of days old: " + str(num_days_old1))
-        logging.debug("load_from_oracle: " + str(load_from_oracle))
+        logging.debug("load_oracle: " + str(load_oracle))
         logging.debug("testing: " + str(testing))
 
         # While testing the code, set testing = True. This will cause the scripts to create small tables,
@@ -431,7 +451,10 @@ def start_procedures():
             if run_outlier_stats:
                 #################################################################################
                 # Add data to tables AI_GROUP_STATS and AI_OUTLIER_STATS.
-                execfile(sql_directory + "outlier_stats.py")
+                outs.get_outlier_stats(stat_year, load_oracle, replace_oracle_tables, append_oracle_tables, update_pur_rates, \
+                                       table_directory, ctl_directory, sql_directory, user_login)
+                # exec(open(sql_directory + "outlier_stats.py").read())
+                # execfile(sql_directory + "outlier_stats.py")
         else:
             logging.debug("Outliers not run")
 
@@ -491,43 +514,50 @@ Checkbutton(proc_frame, text="Run Outliers", font="TkHeadingFont 10", variable=r
 run_outliers_tk.set(True)
 
 Checkbutton(proc_frame, text="   Create PUR_SITE_GROUPS table", variable=run_pur_site_groups_tk).grid(row=3, column=1, sticky='w')
-run_pur_site_groups_tk.set(True)
+run_pur_site_groups_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create PROD_ADJUVANTS table", variable=run_prod_adjuvants_tk).grid(row=4, column=1, sticky='w')
-run_prod_adjuvants_tk.set(True)
+run_prod_adjuvants_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create CHEM_ADJUVANTS table", variable=run_chem_adjuvants_tk).grid(row=5, column=1, sticky='w')
-run_chem_adjuvants_tk.set(True)
+run_chem_adjuvants_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create AI_NAMES table", variable=run_ai_names_tk).grid(row=6, column=1, sticky='w')
-run_ai_names_tk.set(True)
+run_ai_names_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create PROD_CHEM_MAJOR_AI table", variable=run_prod_chem_major_ai_tk).grid(row=7, column=1, sticky='w')
-run_prod_chem_major_ai_tk.set(True)
+run_prod_chem_major_ai_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_RATES table", variable=run_fixed_rates_tk).grid(row=8, column=1, sticky='w')
-run_fixed_rates_tk.set(True)
+run_fixed_rates_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_RATES_AIS table", variable=run_fixed_rates_ais_tk).grid(row=9, column=1, sticky='w')
-run_fixed_rates_ais_tk.set(True)
+run_fixed_rates_ais_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_LBS_APP table", variable=run_fixed_lbs_app_tk).grid(row=10, column=1, sticky='w')
-run_fixed_lbs_app_tk.set(True)
+run_fixed_lbs_app_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create FIXED_OUTLIER_LBS_APP_AIS table", variable=run_fixed_lbs_app_ais_tk).grid(row=11, column=1, sticky='w')
-run_fixed_lbs_app_ais_tk.set(True)
+run_fixed_lbs_app_ais_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create AI_NUM_RECS_YYYY table", variable=run_ai_num_recs_tk).grid(row=12, column=1, sticky='w')
-run_ai_num_recs_tk.set(True)
+run_ai_num_recs_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create PUR_RATES_YYYY table (requires table AI_NUM_RECS)", variable=run_pur_rates_tk).grid(row=13, column=1, sticky='w')
-run_pur_rates_tk.set(True)
+run_pur_rates_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create AI_NUM_RECS_NONAG_YYYY table", variable=run_ai_num_recs_nonag_tk).grid(row=14, column=1, sticky='w')
-run_ai_num_recs_nonag_tk.set(True)
+run_ai_num_recs_nonag_tk.set(False)
 
 Checkbutton(proc_frame, text="   Create PUR_RATES_NONAG_YYYY table (requires table AI_NUM_RECS_NONAG)", variable=run_pur_rates_nonag_tk).grid(row=15, column=1, sticky='w')
-run_pur_rates_nonag_tk.set(True)
+run_pur_rates_nonag_tk.set(False)
+
+Checkbutton(proc_frame, text="   Create AI_GROUP_STATS and AI_OUTLIER_STATS tables", variable=run_stats_tables_tk).grid(row=16, column=1, sticky='w')
+run_stats_tables_tk.set(False)
+
+Checkbutton(proc_frame, text="   Add data to AI_GROUP_STATS and AI_OUTLIER_STATS tables", variable=run_outlier_stats_tk).grid(row=17, column=1, sticky='w')
+run_outlier_stats_tk.set(True)
+
 
 
 
@@ -579,8 +609,8 @@ num_days_old3_tk.set("300")
 
 
 # Load data from the Oracle database?
-Checkbutton(param_frame, text="Load from Oracle", variable=load_from_oracle_tk).grid(row=8, column=1, columnspan=2, sticky='w')
-load_from_oracle_tk.set(True)
+Checkbutton(param_frame, text="Load from Oracle", variable=load_oracle_tk).grid(row=8, column=1, columnspan=2, sticky='w')
+load_oracle_tk.set(True)
 
 # Testing?
 Checkbutton(param_frame, text="Run testing scripts", variable=testing_tk).grid(row=9, column=1, columnspan=2, sticky='w')

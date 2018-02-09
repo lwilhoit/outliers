@@ -1,0 +1,77 @@
+
+SQL*Loader: Release 12.1.0.2.0 - Production on Fri Feb 9 12:29:44 2018
+
+Copyright (c) 1982, 2014, Oracle and/or its affiliates.  All rights reserved.
+
+Control File:   sql_py/ctl_files/ai_outlier_stats_replace.ctl
+Data File:      tables/ai_outlier_stats.txt
+  Bad File:     sql_py/ctl_files/ai_outlier_stats.bad
+  Discard File:  none specified
+ 
+ (Allow all discards)
+
+Number to load: ALL
+Number to skip: 1
+Errors allowed: 999999
+Bind array:     64 rows, maximum of 256000 bytes
+Continuation:    none specified
+Path used:      Conventional
+
+Table AI_OUTLIER_STATS, loaded from every logical record.
+Insert option in effect for this table: TRUNCATE
+TRAILING NULLCOLS option in effect
+
+   Column Name                  Position   Len  Term Encl Datatype
+------------------------------ ---------- ----- ---- ---- ---------------------
+YEAR                                FIRST     *  WHT      CHARACTER            
+CHEM_CODE                            NEXT     *  WHT      CHARACTER            
+AI_GROUP                             NEXT     *  WHT      CHARACTER            
+AGO_IND                              NEXT     *  WHT      CHARACTER            
+UNIT_TREATED                         NEXT     *  WHT      CHARACTER            
+NUM_RECS                             NEXT     *  WHT      CHARACTER            
+NUM_RECS_TRIM                        NEXT     *  WHT      CHARACTER            
+MEDIAN_RATE                          NEXT     *  WHT      CHARACTER            
+MEAN_RATE                            NEXT     *  WHT      CHARACTER            
+MEAN_RATE_TRIM                       NEXT     *  WHT      CHARACTER            
+SD_RATE                              NEXT     *  WHT      CHARACTER            
+SD_RATE_TRIM_ORIG                    NEXT     *  WHT      CHARACTER            
+SD_RATE_TRIM                         NEXT     *  WHT      CHARACTER            
+SUM_SQ_RATE_TRIM                     NEXT     *  WHT      CHARACTER            
+MED50                                NEXT     *  WHT      CHARACTER            
+MED100                               NEXT     *  WHT      CHARACTER            
+MED150                               NEXT     *  WHT      CHARACTER            
+MED200                               NEXT     *  WHT      CHARACTER            
+MED250                               NEXT     *  WHT      CHARACTER            
+MED300                               NEXT     *  WHT      CHARACTER            
+MED400                               NEXT     *  WHT      CHARACTER            
+MED500                               NEXT     *  WHT      CHARACTER            
+MEAN3SD                              NEXT     *  WHT      CHARACTER            
+MEAN5SD                              NEXT     *  WHT      CHARACTER            
+MEAN7SD                              NEXT     *  WHT      CHARACTER            
+MEAN8SD                              NEXT     *  WHT      CHARACTER            
+MEAN10SD                             NEXT     *  WHT      CHARACTER            
+MEAN12SD                             NEXT     *  WHT      CHARACTER            
+MEAN15SD                             NEXT     *  WHT      CHARACTER            
+
+value used for ROWS parameter changed from 64 to 34
+
+Table AI_OUTLIER_STATS:
+  30 Rows successfully loaded.
+  0 Rows not loaded due to data errors.
+  0 Rows not loaded because all WHEN clauses were failed.
+  0 Rows not loaded because all fields were null.
+
+
+Space allocated for bind array:                 254388 bytes(34 rows)
+Read   buffer bytes: 1048576
+
+Total logical records skipped:          1
+Total logical records read:            30
+Total logical records rejected:         0
+Total logical records discarded:        0
+
+Run began on Fri Feb 09 12:29:44 2018
+Run ended on Fri Feb 09 12:29:46 2018
+
+Elapsed time was:     00:00:02.04
+CPU time was:         00:00:00.03

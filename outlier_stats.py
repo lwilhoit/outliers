@@ -57,7 +57,7 @@ import gc
 #
 #stat_year = 2017 #Note from Kim: preivously said stat_year = current_year. I do not see current_year defined anywhere? changed to 2017
 #
-#load_from_oracle = True #Note from Kim: commented out. Uncommenting it and changing to True
+#load_oracle = True #Note from Kim: commented out. Uncommenting it and changing to True
 #
 # When loading data into the Oracle tables AI_GROUP_STATS and AI_OUTLIER_STATS
 # if you want to replace the data already in these tables, set
@@ -105,8 +105,15 @@ trim_prop = 0.05
 
 ##########################################################################################################################
 # Load data into three Panda data frames, either from Oracle tables or Python data files.
-if load_from_oracle:
-    con = cx_Oracle.connect(userid + '/' + password + tns_service)
+def load_from_oracle(stat_year, table_directory, user_login):
+    # print(user_login)
+    con = cx_Oracle.connect('lwilhoit/nashira8@dprprod2')
+    # con = cx_Oracle.connect(user_login)
+
+#   if testing:
+#       testing_str = " AND county_cd = '26'"
+#   else:
+#       testing_str = ''
 
     # Separate into files by ai_type.
     print("Get herbicide data from Oracle:")
@@ -118,7 +125,7 @@ if load_from_oracle:
             "WHERE ai_type = 'HERBICIDE'", con)
 
     pur_rates_df.columns = [x.lower() for x in pur_rates_df.columns]
-    pur_rates_df.to_pickle('high_values/outliers/tables/pur_rates_herbicide_df.pkl')
+    pur_rates_df.to_pickle(table_directory + 'pur_rates_herbicide_df.pkl')
 
     del(pur_rates_df)
     gc.collect()
@@ -132,7 +139,7 @@ if load_from_oracle:
             "WHERE ai_type = 'INSECTICIDE'", con)
 
     pur_rates_df.columns = [x.lower() for x in pur_rates_df.columns]
-    pur_rates_df.to_pickle('high_values/outliers/tables/pur_rates_insecticide_df.pkl')
+    pur_rates_df.to_pickle(table_directory + 'pur_rates_insecticide_df.pkl')
     del(pur_rates_df)
     gc.collect()
 
@@ -145,7 +152,7 @@ if load_from_oracle:
             "WHERE ai_type = 'FUNGICIDE'", con)
 
     pur_rates_df.columns = [x.lower() for x in pur_rates_df.columns]
-    pur_rates_df.to_pickle('high_values/outliers/tables/pur_rates_fungicide_df.pkl')
+    pur_rates_df.to_pickle(table_directory + 'pur_rates_fungicide_df.pkl')
 
     del(pur_rates_df)
     gc.collect()
@@ -159,7 +166,7 @@ if load_from_oracle:
             "WHERE ai_type = 'ADJUVANT'", con)
 
     pur_rates_df.columns = [x.lower() for x in pur_rates_df.columns]
-    pur_rates_df.to_pickle('high_values/outliers/tables/pur_rates_adjuvant_df.pkl')
+    pur_rates_df.to_pickle(table_directory + 'pur_rates_adjuvant_df.pkl')
 
     del(pur_rates_df)
     gc.collect()
@@ -174,7 +181,7 @@ if load_from_oracle:
             'ai_type IS NULL', con)
 
     pur_rates_df.columns = [x.lower() for x in pur_rates_df.columns]
-    pur_rates_df.to_pickle('high_values/outliers/tables/pur_rates_other_df.pkl')
+    pur_rates_df.to_pickle(table_directory + 'pur_rates_other_df.pkl')
 
     del(pur_rates_df)
     gc.collect()
@@ -209,7 +216,7 @@ def trim (xarray, p, minnum):
 # an AI for each record type, unit_treated, pesticide product, and crop or site treated.
 # Later the dataframes for each AI are comined into another dataframe, AI_GROUP_STATS,
 # that includes all AIs.
-def create_stats_ai (p_chem_code, p_rates_ai_df, p_ago_ind, p_unit_treated):
+def create_stats_ai (stat_year, p_chem_code, p_rates_ai_df, p_ago_ind, p_unit_treated):
     # Initialize dataframe stats_ai. A list of variables is provided
     # so that these variables appear in this order.
     stats_ai = \
@@ -481,7 +488,7 @@ def reassign_groups (p_stats_ai, p_rates_ai_df):
 # and a set of statistics for rates or use.
 # Data frame AI_OUTLIER_STATS gives the outlier limits for each AI, group, ago_ind, and unit_treated.
 # Create data frame AI_OUTLIER_STATS
-def create_ai_outlier_stats (p_stats_ai, p_rates_ai_df, p_ago_ind, p_unit_treated):
+def create_ai_outlier_stats (stat_year, p_stats_ai, p_rates_ai_df, p_ago_ind, p_unit_treated):
     chem_code = list(set(p_stats_ai.chem_code))[0]
     ai_outlier_stats = \
         DataFrame(columns=['year', 'chem_code', 'ai_group',
@@ -617,147 +624,151 @@ def create_ai_outlier_stats (p_stats_ai, p_rates_ai_df, p_ago_ind, p_unit_treate
 # both here and in the statement which adds records to the data frame later
 # (in functions reassign_groups() and create_ai_outlier_stats()).
 
-ai_group_stats = \
-   DataFrame(columns=['chem_code', 'ai_group', 'site_general', 'regno_short',
-                 'ago_ind', 'unit_treated', 'chemname', 'ai_name', 'ai_adjuvant',
-                 'mean_trim', 'mean', 'median',
-                 'sd_rate_trim', 'sd_rate_trim_orig', 'sd_rate',
-                 'sum_sq_rate_trim', 'num_recs', 'num_recs_trim', 'year'])
+def get_outlier_stats(stat_year, load_oracle, replace_oracle_tables, append_oracle_tables, update_pur_rates, \
+                      table_directory, ctl_directory, sql_directory, user_login):
+    if load_oracle:
+        load_from_oracle(stat_year, table_directory, user_login)
 
-ai_outlier_stats = \
-    DataFrame(columns=['year', 'chem_code', 'ai_group',
-                       'ago_ind', 'unit_treated',
-                       'num_recs', 'num_recs_trim',
-                       'median_rate', 'mean_rate', 'mean_rate_trim',
-                       'sd_rate', 'sd_rate_trim_orig', 'sd_rate_trim',
-                       'sum_sq_rate_trim',
-                       'med50', 'med100', 'med150', 'med200', 'med250', 'med300', 'med400', 'med500',
-                       'mean3sd', 'mean5sd', 'mean7sd', 'mean8sd', 'mean10sd', 'mean12sd', 'mean15sd'])
+    ai_group_stats = \
+       DataFrame(columns=['chem_code', 'ai_group', 'site_general', 'regno_short',
+                     'ago_ind', 'unit_treated', 'chemname', 'ai_name', 'ai_adjuvant',
+                     'mean_trim', 'mean', 'median',
+                     'sd_rate_trim', 'sd_rate_trim_orig', 'sd_rate',
+                     'sum_sq_rate_trim', 'num_recs', 'num_recs_trim', 'year'])
 
-ai_type_list = ['insecticide', 'herbicide', 'fungicide', 'adjuvant', 'other']
+    ai_outlier_stats = \
+        DataFrame(columns=['year', 'chem_code', 'ai_group',
+                           'ago_ind', 'unit_treated',
+                           'num_recs', 'num_recs_trim',
+                           'median_rate', 'mean_rate', 'mean_rate_trim',
+                           'sd_rate', 'sd_rate_trim_orig', 'sd_rate_trim',
+                           'sum_sq_rate_trim',
+                           'med50', 'med100', 'med150', 'med200', 'med250', 'med300', 'med400', 'med500',
+                           'mean3sd', 'mean5sd', 'mean7sd', 'mean8sd', 'mean10sd', 'mean12sd', 'mean15sd'])
 
-for ai_type in ai_type_list:
-    print('\n')
-    print('*********************************************************************************************')
-    print('Reading pur_rates_df dataframe from ' + 'pur_rates_' + ai_type + '_df.pkl')
-    pur_rates_df = pd.read_pickle('high_values/outliers/tables/pur_rates_' + ai_type + '_df.pkl')
+    ai_type_list = ['insecticide', 'herbicide', 'fungicide', 'adjuvant', 'other']
 
-    #for (ago_ind, unit_treated) in [(a, b) for a in ['A'] for b in ['U']]:
-    for (ago_ind, unit_treated) in [(a, b) for a in ['A', 'N'] for b in ['A', 'C', 'P', 'U']]:
+    for ai_type in ai_type_list:
         print('\n')
-        print('===================================================================')
-        print('ago_ind = ' + ago_ind + '; unit_treated = ' + unit_treated)
+        print('*********************************************************************************************')
+        print('Reading pur_rates_df dataframe from ' + 'pur_rates_' + ai_type + '_df.pkl')
+        pur_rates_df = pd.read_pickle(table_directory + 'pur_rates_' + ai_type + '_df.pkl')
 
-        ai_list = sorted(set(pur_rates_df.chem_code[(pur_rates_df.ago_ind == ago_ind) & (pur_rates_df.unit_treated == unit_treated)]))
+        #for (ago_ind, unit_treated) in [(a, b) for a in ['A'] for b in ['U']]:
+        for (ago_ind, unit_treated) in [(a, b) for a in ['A', 'N'] for b in ['A', 'C', 'P', 'U']]:
+            print('\n')
+            print('===================================================================')
+            print('ago_ind = ' + ago_ind + '; unit_treated = ' + unit_treated)
 
-        # ai_list = [53, 2132]
+            ai_list = sorted(set(pur_rates_df.chem_code[(pur_rates_df.ago_ind == ago_ind) & (pur_rates_df.unit_treated == unit_treated)]))
 
-        if not ai_list: # This will evaluate to True if ai_list contains no elements or if ai_list = None
-            continue
-        print(ai_list)
+            # ai_list = [53, 2132]
 
-        # print('\n')
-        # print('===================================================================')
-        for chem_code in ai_list:
-            rates_ai_df = \
-                pur_rates_df[(pur_rates_df.ago_ind == ago_ind) & (pur_rates_df.unit_treated == unit_treated) &
-                             (pur_rates_df.chem_code == chem_code)]
+            if not ai_list: # This will evaluate to True if ai_list contains no elements or if ai_list = None
+                continue
+            print(ai_list)
 
-            # print 'AI = ' + str(chem_code) + '; num recs = ' + str(len(rates_ai_df))
+            # print('\n')
+            # print('===================================================================')
+            for chem_code in ai_list:
+                rates_ai_df = \
+                    pur_rates_df[(pur_rates_df.ago_ind == ago_ind) & (pur_rates_df.unit_treated == unit_treated) &
+                                 (pur_rates_df.chem_code == chem_code)]
 
-            # print('Call create_stats_ai()')
-            stats_ai = create_stats_ai(chem_code, rates_ai_df, ago_ind, unit_treated)
+                # print 'AI = ' + str(chem_code) + '; num recs = ' + str(len(rates_ai_df))
 
-            # print '_________________________________________________________'
-            # print 'Call create_groups()'
-            stats_ai = create_groups(stats_ai, rates_ai_df, ago_ind, unit_treated)
+                # print('Call create_stats_ai()')
+                stats_ai = create_stats_ai(stat_year, chem_code, rates_ai_df, ago_ind, unit_treated)
 
-            # Create data frame AI_GROUP_STATS
-            # print '_________________________________________________________'
-            # print 'Call reassign_groups()'
-            stats_ai = reassign_groups(stats_ai, rates_ai_df)
-            ai_group_stats = pd.concat([ai_group_stats, stats_ai])
+                # print '_________________________________________________________'
+                # print 'Call create_groups()'
+                stats_ai = create_groups(stats_ai, rates_ai_df, ago_ind, unit_treated)
 
-            # Create data frame AI_OUTLIER_STATS
-            # print '_________________________________________________________'
-            # print 'Call create_ai_outlier_stats()'
-            ai_outlier_statsi = create_ai_outlier_stats(stats_ai, rates_ai_df, ago_ind, unit_treated)
-            ai_outlier_stats = pd.concat([ai_outlier_stats, ai_outlier_statsi])
+                # Create data frame AI_GROUP_STATS
+                # print '_________________________________________________________'
+                # print 'Call reassign_groups()'
+                stats_ai = reassign_groups(stats_ai, rates_ai_df)
+                ai_group_stats = pd.concat([ai_group_stats, stats_ai])
 
-    del(pur_rates_df)
-    gc.collect()
+                # Create data frame AI_OUTLIER_STATS
+                # print '_________________________________________________________'
+                # print 'Call create_ai_outlier_stats()'
+                ai_outlier_statsi = create_ai_outlier_stats(stat_year, stats_ai, rates_ai_df, ago_ind, unit_treated)
+                ai_outlier_stats = pd.concat([ai_outlier_stats, ai_outlier_statsi])
 
-# Export the two data frames to tab-delimited text files.
-print('\n')
-print('*********************************************************************************************')
-print('Export data frames ai_group_stats and ai_outlier_stats to files.')
-if not ai_group_stats.empty:
-    ai_group_stats.to_csv('high_values/outliers/tables/ai_group_stats.txt', index=False, sep='\t')
+        del(pur_rates_df)
+        gc.collect()
 
-if not ai_outlier_stats.empty:
-    ai_outlier_stats.to_csv('high_values/outliers/tables/ai_outlier_stats.txt', index=False, sep='\t')
-
-
-# Update PUR_RATE with values for ai_group.
-# First, load data from ai_outlier_stats.txt and ai_group_stats.txt into
-# the Oracle tables AI_OUTLIER_STATS and AI_GROUP_STATS.
-# You can either replace all the current data in these Oracle tables
-# with the values in the text files, by setting parameter replace_oracle_tables = TRUE, or
-# add the new data to data already in the tables, by setting parameter append_oracle_tables = TRUE.
-if replace_oracle_tables:
+    # Export the two data frames to tab-delimited text files.
     print('\n')
     print('*********************************************************************************************')
-    print('Load data from ai_outlier_stats.txt into Oracle table AI_OUTLIER_STATS, replacing existing data.')
-    return_status = os.system('sqlldr USERID=' + userid + '/' + password + tns_service +
-                      ' CONTROL=high_values/outliers/sql_py/ctl_files/ai_outlier_stats_replace.ctl SKIP=1 LOG=high_values/outliers/sql_py/ctl_files/ai_outlier_stats.log errors=999999')
+    print('Export data frames ai_group_stats and ai_outlier_stats to files.')
+    if not ai_group_stats.empty:
+        ai_group_stats.to_csv(table_directory + 'ai_group_stats.txt', index=False, sep='\t')
 
-    if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
-        # sys.exit()
+    if not ai_outlier_stats.empty:
+        ai_outlier_stats.to_csv(table_directory + 'ai_outlier_stats.txt', index=False, sep='\t')
 
+
+    # Update PUR_RATE with values for ai_group.
+    # First, load data from ai_outlier_stats.txt and ai_group_stats.txt into
+    # the Oracle tables AI_OUTLIER_STATS and AI_GROUP_STATS.
+    # You can either replace all the current data in these Oracle tables
+    # with the values in the text files, by setting parameter replace_oracle_tables = TRUE, or
+    # add the new data to data already in the tables, by setting parameter append_oracle_tables = TRUE.
+    if replace_oracle_tables:
+        print('\n')
+        print('*********************************************************************************************')
+        print('Load data from ai_outlier_stats.txt into Oracle table AI_OUTLIER_STATS, replacing existing data.')
+        return_status = os.system('sqlldr USERID=' + user_login +
+                          ' CONTROL=' + ctl_directory + 'ai_outlier_stats_replace.ctl SKIP=1 LOG=' + ctl_directory + 'ai_outlier_stats.log errors=999999')
+
+        if return_status != 0:
+            print('Python script ended because of an error in sqlldr')
+            # sys.exit()
+
+        print('\n')
+        print('*********************************************************************************************')
+        print('Load data from ai_group_stats.txt into Oracle table AI_GROUP_STATS, replacing existing data.')
+        return_status = os.system('sqlldr USERID=' + user_login +
+                          ' CONTROL=' + ctl_directory + 'ai_group_stats_replace.ctl SKIP=1 LOG=' + ctl_directory + 'ai_group_stats.log errors=999999')
+
+        if return_status != 0:
+            print('Python script ended because of an error in sqlldr')
+            # sys.exit()
+
+    elif append_oracle_tables:
+        print('\n')
+        print('*********************************************************************************************')
+        print('Load data from ai_outlier_stats.txt into Oracle table AI_OUTLIER_STATS, adding to existing data.')
+        return_status = os.system('sqlldr USERID=' + user_login +
+                          ' CONTROL=' + ctl_directory + 'ai_outlier_stats_append.ctl SKIP=1 LOG=' + ctl_directory + 'ai_outlier_stats.log errors=999999')
+
+        if return_status != 0:
+            print('Python script ended because of an error in sqlldr')
+            # sys.exit()
+
+
+        print('\n')
+        print('*********************************************************************************************')
+        print('Load data from ai_group_stats.txt into Oracle table AI_GROUP_STATS, adding to existing data.')
+        return_status = os.system('sqlldr USERID=' + user_login +
+                          ' CONTROL=' + ctl_directory + 'ai_group_stats_append.ctl SKIP=1 LOG=' + ctl_directory + 'ai_group_stats.log errors=999999')
+
+        if return_status != 0:
+            print('Python script ended because of an error in sqlldr')
+            # sys.exit()
+
+    if update_pur_rates:
+        print('\n')
+        print('*********************************************************************************************')
+        print(('Update ai_group in table PUR_RATES_' + str(stat_year)))
+        return_status = os.system('sqlplus -s ' + user_login +' @' + sql_directory + 'update_ai_group ' + str(stat_year))
+        if return_status != 0:
+            print("Python script ended because of an error in update_ai_group.sql.")
+            sys.exit()
+
+    print('Finished with no errors.')
     print('\n')
-    print('*********************************************************************************************')
-    print('Load data from ai_group_stats.txt into Oracle table AI_GROUP_STATS, replacing existing data.')
-    return_status = os.system('sqlldr USERID=' + userid + '/' + password + tns_service +
-                      ' CONTROL=high_values/outliers/sql_py/ctl_files/ai_group_stats_replace.ctl SKIP=1 LOG=high_values/sql_py/ctl_files/ai_group_stats.log errors=999999')
-
-    if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
-        # sys.exit()
-
-elif append_oracle_tables:
-    print('\n')
-    print('*********************************************************************************************')
-    print('Load data from ai_outlier_stats.txt into Oracle table AI_OUTLIER_STATS, adding to existing data.')
-    return_status = os.system('sqlldr USERID=' + userid + '/' + password + tns_service +
-                      ' CONTROL=high_values/sql_py/ctl_files/ai_outlier_stats_append.ctl SKIP=1 LOG=high_values/sql_py/ctl_files//ai_outlier_stats.log errors=999999')
-
-    if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
-        # sys.exit()
-
-
-    print('\n')
-    print('*********************************************************************************************')
-    print('Load data from ai_group_stats.txt into Oracle table AI_GROUP_STATS, adding to existing data.')
-    return_status = os.system('sqlldr USERID=' + userid + '/' + password + tns_service +
-                      ' CONTROL=high_values/sql_py/ctl_files/ai_group_stats_append.ctl SKIP=1 LOG=high_values/sql_py/ctl_files/ai_group_stats.log errors=999999')
-
-    if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
-        # sys.exit()
-
-if update_pur_rates:
-    print('\n')
-    print('*********************************************************************************************')
-    print(('Update ai_group in table PUR_RATES_' + str(stat_year)))
-    return_status = os.system('sqlplus -s ' + userid + '/' + password + tns_service +
-                                      ' @high_values/outliers/sql_py/update_ai_group ' + str(stat_year))
-    if return_status != 0:
-        print("Python script ended because of an error in update_ai_group.sql.")
-        sys.exit()
-
-print('Finished with no errors.')
-print('\n')
 
 

@@ -1,7 +1,7 @@
 -- In general, do not use OPTIONALLY ENCLOSED BY '"'
 -- because this will cause two consecutive tabs to be treated as one tab
 LOAD DATA
-  INFILE '../../tables/ai_outlier_nonag_stats.txt'
+  INFILE 'tables/ai_outlier_nonag_stats.txt'
   TRUNCATE
 INTO TABLE ai_outlier_nonag_stats
   FIELDS TERMINATED BY X'09'
