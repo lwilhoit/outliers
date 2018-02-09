@@ -109,7 +109,7 @@ if load_from_oracle:
     con = cx_Oracle.connect(userid + '/' + password + tns_service)
 
     # Separate into files by ai_type.
-    print("Get herbicide data from Oracle:")
+    print "Get herbicide data from Oracle:"
     pur_rates_df = \
         sql.read_sql(
             'SELECT chem_code, chemname, ai_name, ai_adjuvant, site_code, site_general, regno_short, ' + \
@@ -123,7 +123,7 @@ if load_from_oracle:
     del(pur_rates_df)
     gc.collect()
 
-    print("Get insecticide data from Oracle:")
+    print "Get insecticide data from Oracle:"
     pur_rates_df = \
         sql.read_sql(
             'SELECT chem_code, chemname, ai_name, ai_adjuvant, site_code, site_general, regno_short, ' + \
@@ -136,7 +136,7 @@ if load_from_oracle:
     del(pur_rates_df)
     gc.collect()
 
-    print("Get fungicide data from Oracle:")
+    print "Get fungicide data from Oracle:"
     pur_rates_df = \
         sql.read_sql(
             'SELECT chem_code, chemname, ai_name, ai_adjuvant, site_code, site_general, regno_short, ' + \
@@ -150,7 +150,7 @@ if load_from_oracle:
     del(pur_rates_df)
     gc.collect()
 
-    print("Get adjuvant data from Oracle:")
+    print "Get adjuvant data from Oracle:"
     pur_rates_df = \
         sql.read_sql(
             'SELECT chem_code, chemname, ai_name, ai_adjuvant, site_code, site_general, regno_short, ' + \
@@ -164,7 +164,7 @@ if load_from_oracle:
     del(pur_rates_df)
     gc.collect()
 
-    print("Get other data from Oracle:")
+    print "Get other data from Oracle:"
     pur_rates_df = \
         sql.read_sql(
             'SELECT chem_code, chemname, ai_name, ai_adjuvant, site_code, site_general, regno_short, ' + \
@@ -278,7 +278,7 @@ def create_stats_ai (p_chem_code, p_rates_ai_df, p_ago_ind, p_unit_treated):
 
             stats_ai = pd.concat([stats_ai, stats_temp])
 
-    stats_ai.index = list(range(1, len(stats_ai)+1))
+    stats_ai.index = range(1, len(stats_ai)+1)
     return stats_ai
 # end create_stats_ai()
 ##########################################################################################################################
@@ -398,7 +398,7 @@ def create_groups (p_stats_ai, p_rates_ai_df, p_ago_ind, p_unit_treated):
                             # print '__Shape of groupi ' + str(groupi.shape) + '; type ' + str(type(group_now))
                             group_now = pd.concat([group_now, groupi])
                             p_stats_ai.ai_group[i] = ai_group
-                            group_now.index = list(range(1, len(group_now)+1))
+                            group_now.index = range(1, len(group_now)+1)
 
     #print "__end ai_group " + str(ai_group)
 
@@ -449,8 +449,8 @@ def reassign_groups (p_stats_ai, p_rates_ai_df):
     #print 'stats_groups'
     #print stats_groups
 
-    stats_groups.index = list(range(1, len(stats_groups)+1))
-    p_stats_ai.index = list(range(1, len(p_stats_ai)+1))
+    stats_groups.index = range(1, len(stats_groups)+1)
+    p_stats_ai.index = range(1, len(p_stats_ai)+1)
 
     # Then for each data set, find the group with trimmed mean rate closest
     # to the mean rate of that data set.
@@ -639,14 +639,14 @@ ai_type_list = ['insecticide', 'herbicide', 'fungicide', 'adjuvant', 'other']
 for ai_type in ai_type_list:
     print('\n')
     print('*********************************************************************************************')
-    print('Reading pur_rates_df dataframe from ' + 'pur_rates_' + ai_type + '_df.pkl')
+    print 'Reading pur_rates_df dataframe from ' + 'pur_rates_' + ai_type + '_df.pkl'
     pur_rates_df = pd.read_pickle('high_values/outliers/tables/pur_rates_' + ai_type + '_df.pkl')
 
     #for (ago_ind, unit_treated) in [(a, b) for a in ['A'] for b in ['U']]:
     for (ago_ind, unit_treated) in [(a, b) for a in ['A', 'N'] for b in ['A', 'C', 'P', 'U']]:
         print('\n')
         print('===================================================================')
-        print('ago_ind = ' + ago_ind + '; unit_treated = ' + unit_treated)
+        print 'ago_ind = ' + ago_ind + '; unit_treated = ' + unit_treated
 
         ai_list = sorted(set(pur_rates_df.chem_code[(pur_rates_df.ago_ind == ago_ind) & (pur_rates_df.unit_treated == unit_treated)]))
 
@@ -654,7 +654,7 @@ for ai_type in ai_type_list:
 
         if not ai_list: # This will evaluate to True if ai_list contains no elements or if ai_list = None
             continue
-        print(ai_list)
+        print ai_list
 
         # print('\n')
         # print('===================================================================')
@@ -712,7 +712,7 @@ if replace_oracle_tables:
                       ' CONTROL=high_values/outliers/sql_py/ctl_files/ai_outlier_stats_replace.ctl SKIP=1 LOG=high_values/outliers/sql_py/ctl_files/ai_outlier_stats.log errors=999999')
 
     if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
+        print 'Python script ended because of an error in sqlldr'
         # sys.exit()
 
     print('\n')
@@ -722,7 +722,7 @@ if replace_oracle_tables:
                       ' CONTROL=high_values/outliers/sql_py/ctl_files/ai_group_stats_replace.ctl SKIP=1 LOG=high_values/sql_py/ctl_files/ai_group_stats.log errors=999999')
 
     if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
+        print 'Python script ended because of an error in sqlldr'
         # sys.exit()
 
 elif append_oracle_tables:
@@ -733,7 +733,7 @@ elif append_oracle_tables:
                       ' CONTROL=high_values/sql_py/ctl_files/ai_outlier_stats_append.ctl SKIP=1 LOG=high_values/sql_py/ctl_files//ai_outlier_stats.log errors=999999')
 
     if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
+        print 'Python script ended because of an error in sqlldr'
         # sys.exit()
 
 
@@ -744,20 +744,20 @@ elif append_oracle_tables:
                       ' CONTROL=high_values/sql_py/ctl_files/ai_group_stats_append.ctl SKIP=1 LOG=high_values/sql_py/ctl_files/ai_group_stats.log errors=999999')
 
     if return_status != 0:
-        print('Python script ended because of an error in sqlldr')
+        print 'Python script ended because of an error in sqlldr'
         # sys.exit()
 
 if update_pur_rates:
     print('\n')
     print('*********************************************************************************************')
-    print(('Update ai_group in table PUR_RATES_' + str(stat_year)))
+    print('Update ai_group in table PUR_RATES_' + str(stat_year))
     return_status = os.system('sqlplus -s ' + userid + '/' + password + tns_service +
                                       ' @high_values/outliers/sql_py/update_ai_group ' + str(stat_year))
     if return_status != 0:
-        print("Python script ended because of an error in update_ai_group.sql.")
+        print "Python script ended because of an error in update_ai_group.sql."
         sys.exit()
 
-print('Finished with no errors.')
+print 'Finished with no errors.'
 print('\n')
 
 

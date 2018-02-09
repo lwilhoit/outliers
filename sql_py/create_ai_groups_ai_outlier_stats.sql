@@ -19,18 +19,25 @@ WHENEVER OSERROR EXIT 1 ROLLBACK
    depend on site_type which is not in table ai_outlier_stats.
    To get the fixed limits, you need to use table fixed_outlier_rates.
  */
+VARIABLE log_level NUMBER;
+
 PROMPT ________________________________________________
 PROMPT Creating AI_GROUP_STATS table...
 DECLARE
 	v_table_exists		INTEGER := 0;
 BEGIN
+   :log_level := &&1;
+
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'AI_GROUP_STATS';
+	WHERE		table_name = UPPER('AI_GROUP_STATS');
 
 	IF v_table_exists > 0 THEN
-		EXECUTE IMMEDIATE 'DROP TABLE ai_group_stats';
+		EXECUTE IMMEDIATE 'DROP TABLE AI_GROUP_STATS';
+      print_info('Table AI_GROUP_STATS exists, so it was deleted.', :log_level);
+   ELSE
+      print_info('Table AI_GROUP_STATS does not exist.', :log_level);
 	END IF;
 EXCEPTION
    WHEN OTHERS THEN
@@ -77,10 +84,13 @@ BEGIN
 	SELECT	COUNT(*)
 	INTO		v_table_exists
 	FROM		user_tables
-	WHERE		table_name = 'AI_OUTLIER_STATS';
+	WHERE		table_name = UPPER('AI_OUTLIER_STATS');
 
 	IF v_table_exists > 0 THEN
-		EXECUTE IMMEDIATE 'DROP TABLE ai_outlier_stats';
+		EXECUTE IMMEDIATE 'DROP TABLE AI_OUTLIER_STATS';
+      print_info('Table AI_OUTLIER_STATS exists, so it was deleted.', :log_level);
+   ELSE
+      print_info('Table AI_OUTLIER_STATS does not exist.', :log_level);
 	END IF;
 EXCEPTION
    WHEN OTHERS THEN
@@ -124,6 +134,8 @@ PCTUSED 95
 PCTFREE 3
 STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
+
+PROMPT ________________________________________________
 
 EXIT 0
 

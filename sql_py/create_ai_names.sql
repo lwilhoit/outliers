@@ -54,6 +54,7 @@ BEGIN
 
 	IF v_table_exists > 0 THEN
 		EXECUTE IMMEDIATE 'RENAME ai_names TO ai_names_old';
+		--EXECUTE IMMEDIATE 'DROP INDEX ai_names_ndx';
 		print_info('Renamed table AI_NAMES to AI_NAMES_OLD', :log_level);
    ELSE
       print_info('Table AI_NAMES does not exist', :log_level);
@@ -779,9 +780,10 @@ INSERT INTO ai_names
 
 COMMIT;
 
+/*
 CREATE INDEX ai_names_ndx ON ai_names
    (chem_code);
-
+*/
 
 
 /* Add AI types to specific AIs with general AI.  That is,
@@ -790,7 +792,7 @@ CREATE INDEX ai_names_ndx ON ai_names
 	no AI type.  As default set the AI types for these
 	specific AIs equal to the AI type for the general AI.
  */
-&&2
+/*
 GRANT SELECT ON ai_names TO PUBLIC;
 
 PROMPT ________________________________________________
@@ -853,7 +855,7 @@ SET ai_type_walnut = (SELECT ai_type_walnut FROM ai_names WHERE chem_code = aic.
 WHERE	ai_type_walnut IS NULL;
 
 COMMIT;
-&&3
+*/
 
 EXIT 0
 

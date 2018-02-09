@@ -80,7 +80,7 @@ BEGIN
 	END IF;
 EXCEPTION
    WHEN e_old_table THEN
-      print_critical('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.', :log_level);
+      DBMS_OUTPUT.PUT_LINE('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.');
       RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
       -- RAISE_APPLICATION_ERROR is needed in order to exit this entire script; otherwise, the script will continue with CREATE TABLE ai_num_recs_&&1.
    WHEN OTHERS THEN

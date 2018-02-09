@@ -15,12 +15,23 @@ Create tables to find high or outlier values in the PUR.
 # 3. Change the state of the buttons for different procedures
 #    when the run_outlier button is checked or unchecked.
 
-#   When start production scripts, remove county_cd = '33' from several scripts;
-#   remove comment marks from end of create_ai_names.sql,
-#   create_fixed_outlier_rates_ais.sql, create_fixed_outlier_lbs_app_ais.sql, 
+#   When start production scripts, remove comment marks from end of create_ai_names.sql,
+#    
+#   Number of days the following tables are considered old and should be recreated:
+#   In create_ai_num_recs.sql and create_ai_num_recs_nonag.sql:
+#   PROD_CHEM_MAJOR_AI: 30
+#   AI_NUM_RECS_YYYY: 2
+#   AI_NUM_RECS_NONAG_YYYY: 2
 #
-#
-#
+#   In create_pur_rates.sql abd create_pur_rates_nonag.sql
+#   AI_NUM_RECS_SUM_YYYY: 2
+#   AI_NUM_RECS_NONAG_SUM_YYYY: 2
+#   AI_NAMES: 30
+#   CHEM_ADJUVANT: 30
+#   PUR_SITE_GROUPS: 300
+#   
+
+
 
 import os
 import sys
@@ -93,7 +104,9 @@ run_pur_rates_nonag_tk = BooleanVar()
 stat_year_tk = IntVar()
 num_stat_years_tk = IntVar()
 num_fixed_years_tk = IntVar()
-num_days_old_tk = IntVar()
+num_days_old1_tk = IntVar()
+num_days_old2_tk = IntVar()
+num_days_old3_tk = IntVar()
 load_from_oracle_tk = BooleanVar()
 testing_tk = BooleanVar()
 
@@ -152,6 +165,14 @@ def call_sql(sql_login, sql_file, *option_list):
         sys.exit()
 
 def call_ctl(loader_login, load_table):
+    """ Call Oracle loader to run ctl file.
+        Parameter loader_login is a string defined at the beginning of
+        procedure start_procedures.  It contains the command "sqlldr"
+        and the userid and password.
+
+        Parameter load_table is the name of the Oracle table that will
+        be loaded.
+    """
     print("\n")
     print("\n" + "*"*80)
     logging.critical('Start of call_ctl() using table %s', load_table)
@@ -261,7 +282,9 @@ def start_procedures():
         stat_year = stat_year_tk.get()
         num_stat_years = num_stat_years_tk.get()
         num_fixed_years = num_fixed_years_tk.get()
-        num_days_old = num_days_old_tk.get()
+        num_days_old1 = num_days_old1_tk.get()
+        num_days_old2 = num_days_old2_tk.get()
+        num_days_old3 = num_days_old3_tk.get()
         load_from_oracle = load_from_oracle_tk.get()
         testing = testing_tk.get()
 
@@ -281,7 +304,7 @@ def start_procedures():
         logging.debug("Year: " + str(stat_year))
         logging.debug("Num of years in PUR_RATES: " + str(num_stat_years))
         logging.debug("Num of years in fixed tables: " + str(num_fixed_years))
-        logging.debug("Num of days old: " + str(num_days_old))
+        logging.debug("Num of days old: " + str(num_days_old1))
         logging.debug("load_from_oracle: " + str(load_from_oracle))
         logging.debug("testing: " + str(testing))
 
@@ -330,7 +353,7 @@ def start_procedures():
                 #################################################################################
                 # Create table AI_NAMES.
                 sql_file = 'create_ai_names.sql'
-                call_sql(sql_login, sql_file, log_level, comment1, comment2)
+                call_sql(sql_login, sql_file, log_level)
 
             if run_prod_chem_major_ai:
                 #################################################################################
@@ -376,13 +399,13 @@ def start_procedures():
                 # table used to create another intermediate table, AI_NUM_RECS_SUM_YYYY, which is used to
                 # create table PUR_RATES_YYYY.
                 sql_file = 'create_ai_num_recs.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, log_level, comment1, comment2)
 
             if run_pur_rates:
                 #################################################################################
                 # Create table PUR_RATES_YYYY.
                 sql_file = 'create_pur_rates.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, num_days_old2, num_days_old3, log_level, comment1, comment2)
 
             if run_ai_num_recs_nonag:
                 #################################################################################
@@ -391,14 +414,24 @@ def start_procedures():
                 # create table PUR_RATES_NONAG_YYYY.
                 sql_file = 'create_ai_num_recs_nonag.sql'
                 # call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level)
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, log_level, comment1, comment2)
 
             if run_pur_rates_nonag:
                 #################################################################################
                 # Create table PUR_RATES_NONAG_YYYY.
                 sql_file = 'create_pur_rates_nonag.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old, log_level, comment1, comment2)
+                call_sql(sql_login, sql_file, log_level)
 
+            if run_stats_tables:
+                #################################################################################
+                # Create empty tables AI_GROUP_STATS and AI_OUTLIER_STATS.
+                sql_file = 'create_ai_groups_ai_outlier_stats.sql'
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, num_days_old2, num_days_old3, log_level, comment1, comment2)
+
+            if run_outlier_stats:
+                #################################################################################
+                # Add data to tables AI_GROUP_STATS and AI_OUTLIER_STATS.
+                execfile(sql_directory + "outlier_stats.py")
         else:
             logging.debug("Outliers not run")
 
@@ -529,17 +562,28 @@ Entry(param_frame, width=40, textvariable=num_fixed_years_tk).grid(row=4, column
 num_fixed_years_tk.set("9")
 
 # Number of days table old?
-Label(param_frame, text="Number of days table is considered too old: ").grid(row=5, column=1, sticky='w')
-Entry(param_frame, width=40, textvariable=num_days_old_tk).grid(row=5, column=2)
-num_days_old_tk.set("100")
+Label(param_frame, text="Number of days label tables considered too old: ").grid(row=5, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_days_old1_tk).grid(row=5, column=2)
+num_days_old1_tk.set("200") # Normally Set to 30
+
+# Number of days table old?
+Label(param_frame, text="Number of days AI_NUM_RECS... tables are considered too old: ").grid(row=6, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_days_old2_tk).grid(row=6, column=2)
+num_days_old2_tk.set("2")
+
+# Number of days table old?
+Label(param_frame, text="Number of days PUR_SITE_GROUPS table is considered too old: ").grid(row=7, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_days_old3_tk).grid(row=7, column=2)
+num_days_old3_tk.set("300")
+
 
 
 # Load data from the Oracle database?
-Checkbutton(param_frame, text="Load from Oracle", variable=load_from_oracle_tk).grid(row=6, column=1, columnspan=2, sticky='w')
+Checkbutton(param_frame, text="Load from Oracle", variable=load_from_oracle_tk).grid(row=8, column=1, columnspan=2, sticky='w')
 load_from_oracle_tk.set(True)
 
 # Testing?
-Checkbutton(param_frame, text="Run testing scripts", variable=testing_tk).grid(row=7, column=1, columnspan=2, sticky='w')
+Checkbutton(param_frame, text="Run testing scripts", variable=testing_tk).grid(row=9, column=1, columnspan=2, sticky='w')
 testing_tk.set(True)
 
 

@@ -19,7 +19,7 @@ PROMPT Creating AI_NUM_RECS_NONAG_&&1 table...
 DECLARE
 	v_table_exists		INTEGER := 0;
    v_table_name      VARCHAR2(100);
-   v_num_days_old    INTEGER := &&3;
+   v_num_days_old1   INTEGER := &&3;
    v_created_date    DATE;
    v_log_level       VARCHAR2(100);
    e_old_table       EXCEPTION;
@@ -43,12 +43,12 @@ BEGIN
             table_name = v_table_name;
 
 
-   IF v_created_date < SYSDATE - v_num_days_old THEN     
+   IF v_created_date < SYSDATE - v_num_days_old1 THEN     
       :returncode := 2;
       RAISE e_old_table;
    END IF;
 
-   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old1||' days old.', :log_level);
    
   -------------------------------------------------
    -- Check existence of table AI_NUM_RECS_NONAG_&&1
@@ -68,7 +68,7 @@ BEGIN
 	END IF;
 EXCEPTION
    WHEN e_old_table THEN
-      print_critical('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old||' days old.', :log_level);
+      print_critical('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old1||' days old.', :log_level);
       RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
       -- RAISE_APPLICATION_ERROR is needed in order to exit this entire script; otherwise, the script will continue with CREATE TABLE ai_num_recs_&&1.
    WHEN OTHERS THEN

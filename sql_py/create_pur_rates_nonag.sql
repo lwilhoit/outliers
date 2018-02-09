@@ -19,26 +19,21 @@ PROMPT Creating PUR_RATES_NONAG_&&1 table...
 DECLARE
 	v_table_exists		INTEGER := 0;
    v_table_name      VARCHAR2(100);
-   p_num_days_old    INTEGER := &&3;
-   v_num_days_old    INTEGER;
-   v_num_days_old1   INTEGER;
-   v_num_days_old2   INTEGER;
+   v_num_days_old1   INTEGER := &&3;
+   v_num_days_old2   INTEGER := &&4;
+   v_num_days_old3   INTEGER := &&5;
    v_created_date    DATE;
    e_old_table       EXCEPTION;
 BEGIN
-   :log_level := &&4;
+   :log_level := &&6;
    :returncode := 0;
 
    print_info('First, check that the tables needed to create PUR_RATES_NONAG_&&1 exist and have been created recently.', :log_level);
    print_info('If any of the tables are older than required for that table, the script will quit.', :log_level);
 
-   v_num_days_old1 := 2; -- Number of days table AI_NUM_RECS_NONAG_SUM_&&1 is old enough to recreate
-   v_num_days_old2 := 400; -- Number of days table PUR_SITE_GROUPS is old enough to recreate
-
    -- Check creation data for table AI_NUM_RECS_NONAG_SUM_&&1.
    -- This table needs to be created within the last day. 
    v_table_name := UPPER('AI_NUM_RECS_NONAG_SUM_&&1');
-   v_num_days_old := v_num_days_old1;
 
    SELECT   created
    INTO     v_created_date
@@ -49,18 +44,16 @@ BEGIN
             all_tables.owner IN ('PUR_REPORT', 'LWILHOIT') AND
             table_name = v_table_name;
 
-   IF v_created_date < SYSDATE - v_num_days_old THEN     
+   IF v_created_date < SYSDATE - v_num_days_old2 THEN     
       :returncode := 2;
       RAISE e_old_table;
    END IF;
 
-   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old2||' days old.', :log_level);
 
    -------------------------------------------------
    -- Check creation data for table AI_NAMES
    v_table_name := UPPER('AI_NAMES');
-   v_num_days_old := p_num_days_old;
-
 
    SELECT   created
    INTO     v_created_date
@@ -71,17 +64,16 @@ BEGIN
             all_tables.owner = 'PUR_REPORT' AND
             table_name = v_table_name;
 
-   IF v_created_date < SYSDATE - v_num_days_old THEN     
+   IF v_created_date < SYSDATE - v_num_days_old1 THEN     
       :returncode := 2;
       RAISE e_old_table;
    END IF;
 
-   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old1||' days old.', :log_level);
 
    -------------------------------------------------
    -- Check creation data for table CHEM_ADJUVANT
    v_table_name := UPPER('CHEM_ADJUVANT');
-   v_num_days_old := p_num_days_old;
 
    SELECT   created
    INTO     v_created_date
@@ -92,18 +84,17 @@ BEGIN
             all_tables.owner = 'PUR_REPORT' AND
             table_name = v_table_name;
 
-   IF v_created_date < SYSDATE - v_num_days_old THEN     
+   IF v_created_date < SYSDATE - v_num_days_old1 THEN     
       :returncode := 2;
       RAISE e_old_table;
    END IF;
 
-   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old1||' days old.', :log_level);
 
 
    -------------------------------------------------
    -- Check creation data for table PUR_SITE_GROUPS:
    v_table_name := UPPER('PUR_SITE_GROUPS');
-   v_num_days_old := v_num_days_old2;
 
    SELECT   created
    INTO     v_created_date
@@ -114,12 +105,12 @@ BEGIN
             all_tables.owner = 'PUR_REPORT' AND
             table_name = v_table_name;
 
-   IF v_created_date < SYSDATE - v_num_days_old THEN     
+   IF v_created_date < SYSDATE - v_num_days_old3 THEN     
       :returncode := 2;
       RAISE e_old_table;
    END IF;
 
-   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old||' days old.', :log_level);
+   print_info('Table '||v_table_name||' was created on '||v_created_date ||', which is less than '||v_num_days_old3||' days old.', :log_level);
 
 
   -------------------------------------------------
@@ -141,6 +132,9 @@ BEGIN
 
    print_info('Create table PUR_RATES_NONAG_&&1 now...', :log_level);
 EXCEPTION
+   WHEN e_old_table THEN
+      print_critical('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old1||' days old.', :log_level);
+      RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
    WHEN OTHERS THEN
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
 END;
@@ -202,7 +196,7 @@ BEGIN
 					record_id IN ('2', 'C') AND
 					lbs_prd_used > 0 AND
 					num_years = v_num_years 
-               &&5 AND county_cd = '33' &&6
+               &&7 AND county_cd = '33' &&8
                ; 
 
 		COMMIT;
