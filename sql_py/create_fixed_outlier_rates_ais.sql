@@ -300,9 +300,12 @@ INSERT INTO fixed_outlier_rates_stats
                     WHEN unit_treated = 'T' THEN 'P'
                     WHEN unit_treated = 'K' THEN 'C'
                     ELSE unit_treated END unit_treated,
-               CASE WHEN site_code IN (65000, 65011, 65015, 65021, 65026, 65029, 65503, 65505) 
-                    THEN 'WATER'
-                    ELSE 'OTHER'
+               CASE WHEN pur.record_id IN ('2', 'C') OR pur.site_code < 100 OR pur.site_code > 29500 THEN
+                    CASE  WHEN site_code IN (65000, 65011, 65015, 65021, 65026, 65029, 65503, 65505) 
+                          THEN 'WATER'
+                          ELSE 'OTHER'
+                    END
+                    ELSE 'ALL'                       
                END site_type,
                chem_code, chemname, 
                --CASE WHEN chem_code IN (1379, 1664, 2173, 2216, 5068) THEN 'Y' 
@@ -897,9 +900,13 @@ INSERT INTO fixed_outlier_rates_stats
                     WHEN unit_treated = 'T' THEN 'P'
                     WHEN unit_treated = 'K' THEN 'C'
                     ELSE unit_treated END,
-               CASE WHEN site_code IN (65000, 65011, 65015, 65021, 65026, 65029, 65503, 65505) 
-                    THEN 'WATER'
-                    ELSE 'OTHER'
+                    ELSE unit_treated END unit_treated,
+               CASE WHEN pur.record_id IN ('2', 'C') OR pur.site_code < 100 OR pur.site_code > 29500 THEN
+                    CASE  WHEN site_code IN (65000, 65011, 65015, 65021, 65026, 65029, 65503, 65505) 
+                          THEN 'WATER'
+                          ELSE 'OTHER'
+                    END
+                    ELSE 'ALL'                       
                END,
                chem_code, chemname, 
                CASE WHEN chem_code IS NULL THEN 'N' ELSE ca.adjuvant END; 
