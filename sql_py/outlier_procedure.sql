@@ -181,6 +181,176 @@ INSERT INTO outlier_rate_stats
 
 COMMIT;
 
+
+DROP TABLE outlier_rate_stats;
+CREATE TABLE outlier_rate_stats
+   (year						INTEGER,
+  	 chem_code				INTEGER,
+    ai_group            INTEGER,
+    ago_ind        		VARCHAR2(1),
+    record_id           VARCHAR2(1),
+    unit_treated 			VARCHAR2(1),
+    unit_treated_report VARCHAR2(1),
+    site_general        VARCHAR2(100),
+    site_code           INTEGER,
+    regno_short			VARCHAR2(20),
+    prodno              INTEGER,
+	 mean3sd   				NUMBER)
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
+TABLESPACE pur_report;
+
+DECLARE
+   v_unit_factor        NUMBER;
+   v_unit_treated       VARCHAR2(1);
+
+   v_ago_ind            VARCHAR2(1);
+   v_ai_group_rate      INTEGER := NULL;
+   v_ai_group_lbsapp    INTEGER := NULL;
+   v_ai_rate_type       VARCHAR2(100);
+   v_lbs_ai_app_type    VARCHAR2(100);
+   v_site_type          VARCHAR2(100);
+   v_ai_adjuvant        VARCHAR2(1);
+
+   v_regno_short        VARCHAR2(100);
+   v_site_general       VARCHAR2(50);
+   v_chem_code          INTEGER;
+
+
+   CURSOR pur_cur AS
+      SELECT   DISTINCT record_id, prodno, site_code, unit_treated
+      FROM     pur_rates_2017;
+
+   CURSOR ai_cur(p_prodno IN NUMBER) AS
+      SELECT   chem_code
+      FROM     prod_chem_major_ai
+      WHERE    prodno = p_prodno;
+BEGIN
+   FOR pur_rec IN pur_cur LOOP
+
+      IF pur_rec.record_id IN ('2', 'C') OR pur_rec.site_code < 100 OR 
+            (pur_rec.site_code > 29500 AND pur_rec.site_code NOT IN (30000, 30005, 40008, 66000)) THEN
+         v_ago_ind := 'N'; 
+      ELSE 
+         v_ago_ind :- 'A';
+      END IF;
+
+      BEGIN
+        SELECT site_general
+        INTO   v_site_general
+        FROM   pur_site_groups
+        WHERE  site_code = p_site_code;
+      EXCEPTION
+        WHEN OTHERS THEN
+            v_site_general := NULL;
+      END;
+
+      BEGIN
+        SELECT adjuvant
+        INTO   v_ai_adjuvant
+        FROM   chem_adjuvant
+        WHERE  chem_code = p_chem_code;
+      EXCEPTION
+        WHEN OTHERS THEN
+            v_ai_adjuvant := 'N';
+      END;
+
+      BEGIN
+        SELECT mfg_firmno||'-'||label_seq_no
+        INTO   v_regno_short
+        FROM   product
+        WHERE  prodno = p_prodno;
+      EXCEPTION
+        WHEN OTHERS THEN
+            v_regno_short := NULL;
+      END;
+
+    /*********************************************************************************
+        Get outliers in rates of use (pounds AI per unit treated).
+        These includes some non-ag records when a unit treated is reported.
+     ********************************************************************************/
+      IF pur_rec.acre_treated > 0 AND pur_rec.unit_treated IS NOT NULL THEN
+         IF pur_rec.unit_treated = 'S' THEN
+            v_unit_treated := 'A';
+            v_unit_factor := 43560;
+         ELSE IF pur_rec.unit_treated = 'K' THEN
+            v_unit_treated := 'C';
+            v_unit_factor := 1/1000;
+         ELSE IF pur_rec.unit_treated = 'T' THEN
+            v_unit_treated := 'P';
+            v_unit_factor := 1/2000;
+         ELSE 
+            v_unit_treated := pur_rec.unit_treated;
+            v_unit_factor := 1;
+         END IF;
+
+         FOR ai_rec IN ai_cur(pur_rec.prodno) LOOP
+            v_chem_code := ai_rec.chem_code;
+
+            /* Get the AI rate type for this AI and type of application:
+             */
+            IF pur_rec.ai_adjuvant = 'Y' THEN
+               v_ai_rate_type := 'ADJUVANT';
+            ELSE
+               BEGIN
+                  SELECT   ai_rate_type
+                  INTO     v_ai_rate_type
+                  FROM     fixed_outlier_rates_ais
+                  WHERE    ago_ind = v_ago_ind AND 
+                           unit_treated = v_unit_treated AND
+                           site_type = v_site_type AND
+                           chem_code = v_chem_code;
+               EXCEPTION
+                  WHEN OTHERS THEN
+                     v_ai_rate_type := 'NORMAL';
+               END;
+            END IF;
+
+
+            /* Get the fixed outlier limits.
+             */
+            BEGIN
+               SELECT	log_rate1, log_rate2, log_rate3
+               INTO		v_fixed1_rate, v_fixed2_rate, v_fixed3_rate
+               FROM		fixed_outlier_rates
+               WHERE		ago_ind = pur_rec.ago_ind AND
+                        unit_treated = pur_rec.unit_treated AND
+                        ai_rate_type = v_ai_rate_type AND
+                        site_type = v_site_type;
+            EXCEPTION
+               WHEN OTHERS THEN
+                  v_fixed1_rate := NULL;
+                  v_fixed2_rate := NULL;
+                  v_fixed3_rate := NULL;
+            END;
+
+         END LOOP;
+
+
+
+      END IF;
+
+   END LOOP;
+
+EXCEPTION
+	WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE(SQLERRM||'; use_no = '||v_use_no);
+END;
+/
+show errors
+
+
+   CURSOR aios_cur AS
+      SELECT   *
+      FROM     ai_outlier_stats;
+
+   CURSOR ors_cur AS
+      SELECT   *
+      FROM     outlier_rate_stats;
+
+
 SELECT   *
 FROM     outlier_rate_stats
 ORDER BY chem_code, ai_group, ago_ind, unit_treated, site_general, regno_short, prodno, record_id, unit_treated_report;
@@ -237,7 +407,7 @@ ORDER BY chem_code, prodno;
 
 
 
-/* Example of how to use this table:
+/* Examples of how to use this table:
  */
 SELECT   *
 FROM     outlier_fixed_rate_stats 

@@ -568,25 +568,6 @@ def create_ai_outlier_stats (stat_year, p_stats_ai, p_rates_ai_df, p_ago_ind, p_
 
         ai_adjuvant = list(set(p_rates_ai_df.ai_adjuvant))[0]
 
-        # We can not determine if this is a WATER because there may be
-        # several sites in this set of records.
-        # In the analysis or in the loader procedure which examines
-        # each individual record then can determine if this is a WATER.
-        # if p_ago_ind == 'N' and p_rates_ai_df.site_code in [65000, 65503]:
-        #    ai_rate_type = 'WATER'
-        #elif ai_adjuvant == 'Y' and p_ago_ind == 'A' and p_unit_treated == 'A':
-        if ai_adjuvant == 'Y' and p_ago_ind == 'A' and p_unit_treated == 'A':
-            ai_rate_type = 'ADJUVANT'
-        elif chem_code in (136, 233, 385, 573, 616, 970):
-            ai_rate_type = 'HIGH_RATE_AI'
-        elif chem_code in (7, 99, 270, 358, 401, 560, 765, 1596, 1794, 2106, 2210, 2273, 2629, 5785):
-            ai_rate_type = 'MEDIUM_RATE_AI'
-        else:
-            ai_rate_type = 'NORMAL_RATE_AI'
-
-            # (65000 in set(p_rates_ai_df.site_code) or 65503 in set(p_rates_ai_df.site_code)):
-        #print 'ago ' + p_ago_ind + '; unit ' + p_unit_treated + '; adj ' + ai_adjuvant + '; chem ' + str(chem_code) + '; type ' + ai_rate_type
-
         ai_outlier_statsi = \
         DataFrame({'year':[stat_year], 'chem_code':[chem_code], 'ai_group':[ai_group],
                    'ago_ind':[p_ago_ind], 'unit_treated':[p_unit_treated],
