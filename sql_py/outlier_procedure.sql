@@ -159,6 +159,7 @@ DECLARE
 
    v_index                 INTEGER;
    v_num_stat_recs         INTEGER;
+   v_outlier_stats_exist   BOOLEAN;
 
    CURSOR oas_cur IS
       SELECT   regno_short, ago_ind, site_general, unit_treated
@@ -177,6 +178,7 @@ BEGIN
       DBMS_OUTPUT.PUT_LINE('v_index = '||v_index);
       DBMS_OUTPUT.PUT_LINE('oas_rec.regno_short = '||oas_rec.regno_short);
       DBMS_OUTPUT.PUT_LINE('oas_rec.unit_treated = '||oas_rec.unit_treated);
+      DBMS_OUTPUT.PUT_LINE('oas_rec.ago_ind = '||oas_rec.ago_ind);
       IF oas_rec.ago_ind = 'N' THEN
          IF oas_rec.site_general = 'WATER_AREA' THEN
             v_site_type := 'WATER';
@@ -207,18 +209,6 @@ BEGIN
       v_outlier_limit_min := 1000000000000;
       FOR ai_rec IN ai_cur(oas_rec.regno_short) LOOP
          DBMS_OUTPUT.PUT_LINE('ai_rec.chem_code = '||ai_rec.chem_code);
-
-         SELECT   count(*)
-         INTO     v_num_stat_recs
-         FROM		pur_report.ai_outlier_stats
-         WHERE		chem_code = ai_rec.chem_code AND
-                  ago_ind = oas_rec.ago_ind AND
-                  unit_treated = v_unit_treated;
-
-         IF v_num_stat_recs = 0 THEN
-            DBMS_OUTPUT.PUT_LINE('No stats for uni = '||v_unit_treated);
-            CONTINUE;
-         END IF;
 
          /* Get fixed rate outliers.
           */
@@ -265,158 +255,202 @@ BEGIN
          END;
 
 
-         /* Get other rate outliers.
+         /* Get other rate outliers, but first check that outlier stats
+            exist for this situation.
           */
-         BEGIN
-            SELECT   ai_group
-            INTO     v_ai_group
-            FROM     pur_report.ai_group_stats
-            WHERE    chem_code = ai_rec.chem_code AND
-                     regno_short = oas_rec.regno_short AND
-                     site_general = oas_rec.site_general AND
-                     ago_ind = oas_rec.ago_ind AND
-                     unit_treated = v_unit_treated;
-         EXCEPTION
-            WHEN OTHERS THEN
-               v_ai_group := NULL;
-         END;
+         SELECT   count(*)
+         INTO     v_num_stat_recs
+         FROM		pur_report.ai_outlier_stats
+         WHERE		chem_code = ai_rec.chem_code AND
+                  ago_ind = oas_rec.ago_ind AND
+                  unit_treated = v_unit_treated;
 
-         IF v_ai_group IS NULL THEN
-            /* If no statistics found for this AI, ago_ind, unit_treated, product, and site,
-               then use maximum outlier limits for this AI, ago_ind, and unit_treated.
-               If no statistics found for this AI, ago_ind, and unit_treated, just use fixed limits.
-             */
-            BEGIN
-               SELECT	MAX(mean5sd), MAX(mean7sd), MAX(mean8sd), MAX(mean10sd), MAX(mean12sd)
-               INTO		v_mean5sd_rate, v_mean7sd_rate, v_mean8sd_rate, v_mean10sd_rate, v_mean12sd_rate
-               FROM		pur_report.ai_outlier_stats
-               WHERE		chem_code = ai_rec.chem_code AND
-                        ago_ind = oas_rec.ago_ind AND
-                        unit_treated = v_unit_treated;
-            EXCEPTION
-               WHEN OTHERS THEN
-                  v_ai_group := 1;
-                  v_mean5sd_rate := NULL;
-                  v_mean7sd_rate := NULL;
-                  v_mean8sd_rate := NULL;
-                  v_mean10sd_rate := NULL;
-                  v_mean12sd_rate := NULL;
-            END;
-         ELSE -- An AI group is found for this record.
-            BEGIN
-               SELECT	mean5sd, mean7sd, mean8sd, mean10sd, mean12sd
-               INTO		v_mean5sd_rate, v_mean7sd_rate, v_mean8sd_rate, v_mean10sd_rate, v_mean12sd_rate
-               FROM		pur_report.ai_outlier_stats
-               WHERE		chem_code = ai_rec.chem_code AND
-                        ai_group = v_ai_group AND
-                        ago_ind = oas_rec.ago_ind AND
-                        unit_treated = v_unit_treated;
-            EXCEPTION
-               WHEN OTHERS THEN
-                  v_mean5sd_rate := NULL;
-                  v_mean7sd_rate := NULL;
-                  v_mean8sd_rate := NULL;
-                  v_mean10sd_rate := NULL;
-                  v_mean12sd_rate := NULL;
-            END;
+         IF v_num_stat_recs = 0 AND v_fixed2 IS NULL THEN
+            DBMS_OUTPUT.PUT_LINE('No stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            v_outlier_stats_exist := FALSE;
+            CONTINUE;
+         ELSIF v_num_stat_recs = 0 AND v_fixed2 > 0 THEN
+            DBMS_OUTPUT.PUT_LINE('Only fixed stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            v_outlier_stats_exist := TRUE;
 
-         END IF;
+            v_mean5sd_prod := NULL;
+            v_mean7sd_prod := NULL;
+            v_mean8sd_prod := NULL;
+            v_mean10sd_prod := NULL;
+            v_mean12sd_prod := NULL;
 
-         DBMS_OUTPUT.PUT_LINE('log(v_mean5sd_rate) = '||v_mean5sd_rate);
-
-         v_mean5sd_rate := power(10, LEAST(v_mean5sd_rate, 15));
-         v_mean7sd_rate := power(10, LEAST(v_mean7sd_rate, 15));
-         v_mean8sd_rate := power(10, LEAST(v_mean8sd_rate, 15));
-         v_mean10sd_rate := power(10, LEAST(v_mean10sd_rate, 15));
-         v_mean12sd_rate := power(10, LEAST(v_mean12sd_rate, 15));
-
-         BEGIN
-            SELECT   mean_limit
-            INTO     v_mean_limit_str
-            FROM     outlier_final_stats
-            WHERE    ago_ind = oas_rec.ago_ind AND
-                     unit_treated = v_unit_treated AND
-                     ai_rate_type = v_ai_rate_type AND
-                     site_type = v_site_type;
-         EXCEPTION
-            WHEN OTHERS THEN
-               v_mean_limit_str := NULL;
-         END;
-
-         IF v_mean_limit_str = 'MEAN5SD' THEN
-            v_mean_limit := v_mean5sd_rate;
-         ELSIF v_mean_limit_str = 'MEAN7SD' THEN
-            v_mean_limit := v_mean7sd_rate;
-         ELSIF v_mean_limit_str = 'MEAN8SD' THEN
-            v_mean_limit := v_mean8sd_rate;
-         ELSIF v_mean_limit_str = 'MEAN10SD' THEN
-            v_mean_limit := v_mean10sd_rate;
-         ELSIF v_mean_limit_str = 'MEAN12SD' THEN
-            v_mean_limit := v_mean12sd_rate;
-         ELSE
-            v_mean_limit := NULL;
-         END IF;
-
-         v_outlier_limit := LEAST(v_mean_limit, v_fixed2);
-
-         DBMS_OUTPUT.PUT_LINE('v_outlier_limit = '||v_outlier_limit);
-
-         /* Get the outlier limit for the product and
-            choose the smallest outlier limit among all AIs
-            for this product. This procedure may be called
-            with unit_treated = S, K, or T which need to
-            be converted to A, C, or P which are the units
-            in the outlier tables.
-          */
-         v_ai_pct := ai_rec.prodchem_pct/100;
-         DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
-         IF v_ai_pct > 0 THEN
-            v_outlier_limit_prod := v_outlier_limit*v_unit_conversion/v_ai_pct;
-         ELSE
-            v_outlier_limit_prod := NULL;
-         END IF;
-
-         DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod = '||v_outlier_limit_prod);
-         IF v_outlier_limit_prod < v_outlier_limit_min THEN
-            v_outlier_limit_min := v_outlier_limit_prod;
-            v_chem_code := ai_rec.chem_code;
-            v_chemname := ai_rec.chemname;
-
+            v_ai_pct := ai_rec.prodchem_pct/100;
+            DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
             IF v_ai_pct > 0 THEN
-               v_mean5sd_prod := v_mean5sd_rate*v_unit_conversion/v_ai_pct;
-               v_mean7sd_prod := v_mean7sd_rate*v_unit_conversion/v_ai_pct;
-               v_mean8sd_prod := v_mean8sd_rate*v_unit_conversion/v_ai_pct;
-               v_mean10sd_prod := v_mean10sd_rate*v_unit_conversion/v_ai_pct;
-               v_mean12sd_prod := v_mean12sd_rate*v_unit_conversion/v_ai_pct;
                v_fixed1_prod := v_fixed1*v_unit_conversion/v_ai_pct;
                v_fixed2_prod := v_fixed2*v_unit_conversion/v_ai_pct;
                v_fixed3_prod := v_fixed3*v_unit_conversion/v_ai_pct;
+               v_outlier_limit_min := v_fixed2_prod;
             ELSE
-               v_mean5sd_prod := NULL;
-               v_mean7sd_prod := NULL;
-               v_mean8sd_prod := NULL;
-               v_mean10sd_prod := NULL;
-               v_mean12sd_prod := NULL;
                v_fixed1_prod := NULL;
                v_fixed2_prod := NULL;
                v_fixed3_prod := NULL;
+               v_outlier_limit_min := NULL;
+            END IF;
+
+            DBMS_OUTPUT.PUT_LINE('v_outlier_limit_min = '||v_outlier_limit_min);
+         ELSE
+            DBMS_OUTPUT.PUT_LINE('Both fixed and outliersstats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            v_outlier_stats_exist := TRUE;
+
+            BEGIN
+               SELECT   ai_group
+               INTO     v_ai_group
+               FROM     pur_report.ai_group_stats
+               WHERE    chem_code = ai_rec.chem_code AND
+                        regno_short = oas_rec.regno_short AND
+                        site_general = oas_rec.site_general AND
+                        ago_ind = oas_rec.ago_ind AND
+                        unit_treated = v_unit_treated;
+            EXCEPTION
+               WHEN OTHERS THEN
+                  v_ai_group := NULL;
+            END;
+
+            IF v_ai_group IS NULL THEN
+               /* If no statistics found for this AI, ago_ind, unit_treated, product, and site,
+                  then use maximum outlier limits for this AI, ago_ind, and unit_treated.
+                  If no statistics found for this AI, ago_ind, and unit_treated, just use fixed limits.
+                */
+               BEGIN
+                  SELECT	MAX(mean5sd), MAX(mean7sd), MAX(mean8sd), MAX(mean10sd), MAX(mean12sd)
+                  INTO		v_mean5sd_rate, v_mean7sd_rate, v_mean8sd_rate, v_mean10sd_rate, v_mean12sd_rate
+                  FROM		pur_report.ai_outlier_stats
+                  WHERE		chem_code = ai_rec.chem_code AND
+                           ago_ind = oas_rec.ago_ind AND
+                           unit_treated = v_unit_treated;
+               EXCEPTION
+                  WHEN OTHERS THEN
+                     v_ai_group := 1;
+                     v_mean5sd_rate := NULL;
+                     v_mean7sd_rate := NULL;
+                     v_mean8sd_rate := NULL;
+                     v_mean10sd_rate := NULL;
+                     v_mean12sd_rate := NULL;
+               END;
+            ELSE -- An AI group is found for this record.
+               BEGIN
+                  SELECT	mean5sd, mean7sd, mean8sd, mean10sd, mean12sd
+                  INTO		v_mean5sd_rate, v_mean7sd_rate, v_mean8sd_rate, v_mean10sd_rate, v_mean12sd_rate
+                  FROM		pur_report.ai_outlier_stats
+                  WHERE		chem_code = ai_rec.chem_code AND
+                           ai_group = v_ai_group AND
+                           ago_ind = oas_rec.ago_ind AND
+                           unit_treated = v_unit_treated;
+               EXCEPTION
+                  WHEN OTHERS THEN
+                     v_mean5sd_rate := NULL;
+                     v_mean7sd_rate := NULL;
+                     v_mean8sd_rate := NULL;
+                     v_mean10sd_rate := NULL;
+                     v_mean12sd_rate := NULL;
+               END;
+
+            END IF;
+
+            DBMS_OUTPUT.PUT_LINE('log(v_mean5sd_rate) = '||v_mean5sd_rate);
+
+            v_mean5sd_rate := power(10, LEAST(v_mean5sd_rate, 15));
+            v_mean7sd_rate := power(10, LEAST(v_mean7sd_rate, 15));
+            v_mean8sd_rate := power(10, LEAST(v_mean8sd_rate, 15));
+            v_mean10sd_rate := power(10, LEAST(v_mean10sd_rate, 15));
+            v_mean12sd_rate := power(10, LEAST(v_mean12sd_rate, 15));
+
+            BEGIN
+               SELECT   mean_limit
+               INTO     v_mean_limit_str
+               FROM     outlier_final_stats
+               WHERE    ago_ind = oas_rec.ago_ind AND
+                        unit_treated = v_unit_treated AND
+                        ai_rate_type = v_ai_rate_type AND
+                        site_type = v_site_type;
+            EXCEPTION
+               WHEN OTHERS THEN
+                  v_mean_limit_str := NULL;
+            END;
+
+            IF v_mean_limit_str = 'MEAN5SD' THEN
+               v_mean_limit := v_mean5sd_rate;
+            ELSIF v_mean_limit_str = 'MEAN7SD' THEN
+               v_mean_limit := v_mean7sd_rate;
+            ELSIF v_mean_limit_str = 'MEAN8SD' THEN
+               v_mean_limit := v_mean8sd_rate;
+            ELSIF v_mean_limit_str = 'MEAN10SD' THEN
+               v_mean_limit := v_mean10sd_rate;
+            ELSIF v_mean_limit_str = 'MEAN12SD' THEN
+               v_mean_limit := v_mean12sd_rate;
+            ELSE
+               v_mean_limit := NULL;
+            END IF;
+
+            v_outlier_limit := LEAST(v_mean_limit, v_fixed2);
+
+            DBMS_OUTPUT.PUT_LINE('v_outlier_limit = '||v_outlier_limit);
+
+            /* Get the outlier limit for the product and
+               choose the smallest outlier limit among all AIs
+               for this product. This procedure may be called
+               with unit_treated = S, K, or T which need to
+               be converted to A, C, or P which are the units
+               in the outlier tables.
+             */
+            v_ai_pct := ai_rec.prodchem_pct/100;
+            DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
+            IF v_ai_pct > 0 THEN
+               v_outlier_limit_prod := v_outlier_limit*v_unit_conversion/v_ai_pct;
+            ELSE
+               v_outlier_limit_prod := NULL;
+            END IF;
+
+            DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod = '||v_outlier_limit_prod);
+            IF v_outlier_limit_prod < v_outlier_limit_min THEN
+               v_outlier_limit_min := v_outlier_limit_prod;
+               v_chem_code := ai_rec.chem_code;
+               v_chemname := ai_rec.chemname;
+
+               IF v_ai_pct > 0 THEN
+                  v_mean5sd_prod := v_mean5sd_rate*v_unit_conversion/v_ai_pct;
+                  v_mean7sd_prod := v_mean7sd_rate*v_unit_conversion/v_ai_pct;
+                  v_mean8sd_prod := v_mean8sd_rate*v_unit_conversion/v_ai_pct;
+                  v_mean10sd_prod := v_mean10sd_rate*v_unit_conversion/v_ai_pct;
+                  v_mean12sd_prod := v_mean12sd_rate*v_unit_conversion/v_ai_pct;
+                  v_fixed1_prod := v_fixed1*v_unit_conversion/v_ai_pct;
+                  v_fixed2_prod := v_fixed2*v_unit_conversion/v_ai_pct;
+                  v_fixed3_prod := v_fixed3*v_unit_conversion/v_ai_pct;
+               ELSE
+                  v_mean5sd_prod := NULL;
+                  v_mean7sd_prod := NULL;
+                  v_mean8sd_prod := NULL;
+                  v_mean10sd_prod := NULL;
+                  v_mean12sd_prod := NULL;
+                  v_fixed1_prod := NULL;
+                  v_fixed2_prod := NULL;
+                  v_fixed3_prod := NULL;
+               END IF;
             END IF;
          END IF;
 
       END LOOP;
 
-      INSERT INTO outlier_all_stats VALUES
-         (oas_rec.regno_short, oas_rec.ago_ind, oas_rec.site_general, v_site_type, 
-          oas_rec.unit_treated, v_chem_code, v_chemname, v_ai_rate_type,
-          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, 
-          v_mean10sd_prod, v_mean12sd_prod,
-          v_fixed1_prod, v_fixed2_prod, v_fixed3_prod, 
-          v_outlier_limit_min);
-      
-      v_index := v_index + 1;
-      IF v_index > 1000 THEN
-         COMMIT;
-         v_index := 0;
+      IF v_outlier_stats_exist THEN
+         INSERT INTO outlier_all_stats VALUES
+            (oas_rec.regno_short, oas_rec.ago_ind, oas_rec.site_general, v_site_type, 
+             oas_rec.unit_treated, v_chem_code, v_chemname, v_ai_rate_type,
+             v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, 
+             v_mean10sd_prod, v_mean12sd_prod,
+             v_fixed1_prod, v_fixed2_prod, v_fixed3_prod, 
+             v_outlier_limit_min);
+
+         v_index := v_index + 1;
+         IF v_index > 1000 THEN
+            COMMIT;
+            v_index := 0;
+         END IF;
       END IF;
 
    END LOOP;
