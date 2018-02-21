@@ -95,7 +95,7 @@ COMMIT;
 DROP TABLE outlier_all_stats;
 CREATE TABLE outlier_all_stats
    (regno_short			VARCHAR2(20),
-	 ago_ind        		VARCHAR2(1),
+	ago_ind        		VARCHAR2(1),
     site_general        VARCHAR2(100),
     site_type           VARCHAR2(100),
     unit_treated 			VARCHAR2(1),

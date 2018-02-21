@@ -4,7 +4,7 @@ PROCEDURE Outliers
      p_use_no IN NUMBER,
      p_record_id VARCHAR2,
      p_prodno IN NUMBER,
-     -- p_chem_code IN NUMBER,
+     p_chem_code IN NUMBER,
      p_prodchem_pct IN NUMBER,
      p_site_code IN NUMBER,
 
@@ -149,31 +149,29 @@ BEGIN
 
     BEGIN
         SELECT    site_general
-        INTO      v_site_general
-        FROM      pur_site_groups
-        WHERE     site_code = p_site_code;
+        INTO        v_site_general
+        FROM        pur_site_groups
+        WHERE        site_code = p_site_code;
     EXCEPTION
         WHEN OTHERS THEN
             v_site_general := NULL;
     END;
 
-    /*
     BEGIN
         SELECT    adjuvant
-        INTO      v_ai_adjuvant
-        FROM      chem_adjuvant
-        WHERE     chem_code = p_chem_code;
+        INTO        v_ai_adjuvant
+        FROM        chem_adjuvant
+        WHERE        chem_code = p_chem_code;
     EXCEPTION
         WHEN OTHERS THEN
             v_ai_adjuvant := 'N';
     END;
-    */
 
     BEGIN
         SELECT    mfg_firmno||'-'||label_seq_no
-        INTO      v_regno_short
-        FROM      product
-        WHERE     prodno = p_prodno;
+        INTO        v_regno_short
+        FROM        product
+        WHERE        prodno = p_prodno;
     EXCEPTION
         WHEN OTHERS THEN
             v_regno_short := NULL;
@@ -181,7 +179,6 @@ BEGIN
 
     /* Get chemname.
      */
-    /*
     BEGIN
         SELECT     chemname
         INTO        v_chemname
@@ -191,28 +188,117 @@ BEGIN
         WHEN OTHERS THEN
             v_chemname := NULL;
     END;
-   */
+
 
     /*********************************************************************************
         Get outliers in rates of use (pounds AI per unit treated).
         These includes some non-ag records, when a unit treated is reported.
      ********************************************************************************/
+    /* Get the amount_treated and generic unit_treated
+     */
     IF p_acre_treated > 0 THEN
-        v_prod_rate := p_lbs_prd_used/p_acre_treated;
+        IF p_unit_treated = 'S' THEN
+            v_gen_unit_treated := 'A';
+            v_amount_treated := p_acre_treated / 43560;
+        ELSIF p_unit_treated = 'K' THEN
+            v_gen_unit_treated := 'C';
+            v_amount_treated := p_acre_treated * 1000;
+        ELSIF p_unit_treated = 'T' THEN
+            v_gen_unit_treated := 'P';
+            v_amount_treated := p_acre_treated * 2000;
+        ELSE
+            v_gen_unit_treated := p_unit_treated;
+            v_amount_treated := p_acre_treated;
+        END IF;
 
-        SELECT  fixed1, fixed2, fixed3, 
-                mean5sd, mean7sd, mean8sd, mean10sd, mean12sd,
-                outlier_limit
-        INTO    v_fixed1, v_fixed2, v_fixed3,
-                v_mean5sd, v_mean7sd, v_mean8sd, v_mean10sd, v_mean12sd,
-                v_outlier_limit
-        FROM    outlier_all_stats
-        WHERE   regno_short = v_regno_short AND
-                ago_ind = v_ago_ind AND
-                site_general = v_site_general AND
-                unit_treated = v_gen_unit_treated;
+        /* Get rate for AI in product.
+         */
+        v_lbs_ai := p_lbs_prd_used * p_prodchem_pct/100;
 
+        IF v_amount_treated > 0 THEN
+            v_ai_rate := v_lbs_ai/v_amount_treated;
+        ELSE
+            v_ai_rate := NULL;
+        END IF;
 
+        IF v_ai_rate > 0 THEN
+            v_ai_rate_log := LOG(10, v_ai_rate);
+        ELSE
+            v_ai_rate_log := NULL;
+        END IF;
+
+        /* High rate AIs:
+            136    CHLOROPICRIN
+            233    DAZOMET
+            385    METHYL BROMIDE
+            573    1,3-DICHLOROPROPENE
+            616    METAM-SODIUM
+            970    POTASSIUM N-METHYLDITHIOCARBAMATE
+            2273    SODIUM TETRATHIOCARBONATE
+
+            Medium rate AIs:
+            7        DAMINOZIDE
+            99        CALCIUM HYDROXIDE
+            270    ETHYLENE
+            358    LIME-SULFUR
+            401    MINERAL OIL
+            464    PCNB
+            765    PETROLEUM OIL, UNCLASSIFIED
+            1596    POTASH SOAP
+            1794    HYDROGEN PEROXIDE
+            2106    PETROLEUM DISTILLATES, REFINED
+            2629    KAOLIN
+            5785    SODIUM CARBONATE PEROXYHYDRATE
+
+            Water areas:
+            65000 WATER AREA
+            65503 INDUSTRIAL WATER
+         */
+        -- Get rates
+        IF v_ago_ind = 'N' AND p_site_code IN (65000, 65503) THEN
+            v_ai_rate_type := 'WATER_SITE';
+        ELSIF v_ai_adjuvant = 'Y' AND v_ago_ind = 'A' AND v_gen_unit_treated = 'A' THEN
+            v_ai_rate_type := 'ADJUVANT';
+        ELSE
+            BEGIN
+                SELECT    ai_type
+                INTO        v_ai_rate_type
+                FROM        fixed_outlier_rates_ais
+                WHERE        chem_code = p_chem_code;
+            EXCEPTION
+                WHEN OTHERS THEN
+                    v_ai_rate_type := 'NORMAL_RATE_AI';
+            END;
+        END IF;
+
+        /* Get the fixed outlier limit for rates.
+            We could get these fixed limits from the table AI_OUTLIER_STATS
+            except that some AI (eg a new AI) may not exist in that table
+            while using table FIXED_OUTLIER_RATES will return
+            fixed limits for any AI.
+         */
+        BEGIN
+            SELECT    rate1, rate2, rate3
+            INTO        v_fixed1, v_fixed2, v_fixed3
+            FROM        fixed_outlier_rates
+            WHERE        ago_ind = v_ago_ind AND
+                        unit_treated = v_gen_unit_treated AND
+                        ai_type = v_ai_rate_type;
+        EXCEPTION
+            WHEN OTHERS THEN
+                v_fixed1 := NULL;
+                v_fixed2 := NULL;
+                v_fixed3 := NULL;
+        END;
+
+        /*
+        DBMS_OUTPUT.PUT_LINE('______________________________________________________________');
+        DBMS_OUTPUT.PUT_LINE('p_use_no = '||p_use_no);
+        DBMS_OUTPUT.PUT_LINE('v_ago_ind = '||v_ago_ind);
+        DBMS_OUTPUT.PUT_LINE('v_gen_unit_treated = '||v_gen_unit_treated);
+        DBMS_OUTPUT.PUT_LINE('v_ai_rate_type = '||v_ai_rate_type);
+        DBMS_OUTPUT.PUT_LINE('v_fixed1 = '||v_fixed1);
+        */
         /* Get the most recent year from the ai_stats table;
             use that year's values to get median rates.
          */
@@ -226,6 +312,126 @@ BEGIN
                 v_stat_year := NULL;
         END;
 
+        --v_stat_year := p_year;
+
+        /* Get the other outlier limits.  First need the AI group number for this AI, product, site, ago_ind, and
+            unit_treated.
+         */
+        BEGIN
+            SELECT    ai_group
+            INTO        v_ai_group
+            FROM        ai_group_stats
+            WHERE        year = v_stat_year AND
+                        chem_code = p_chem_code AND
+                        regno_short = v_regno_short AND
+                        site_general = v_site_general AND
+                        ago_ind = v_ago_ind AND
+                        unit_treated = v_gen_unit_treated;
+        EXCEPTION
+            WHEN OTHERS THEN
+                v_ai_group := NULL;
+        END;
+
+        --DBMS_OUTPUT.PUT_LINE('v_ai_group = '||v_ai_group);
+
+        /* Get the outlier statistics for this application from table AI_OUTLIER_STATS.
+         */
+        IF v_ai_group IS NULL THEN
+            /* If no statistics found for this AI, ago_ind, unit_treated, product, and site,
+                then use maximum outlier limits for this AI, ago_ind, and unit_treated.
+                If no statistics found for this AI, ago_ind, and unit_treated, just use fixed limits.
+             */
+            BEGIN
+                SELECT    MAX(median_rate), MAX(mean5sd), MAX(mean7sd), MAX(mean8sd), MAX(mean10sd),
+                            MAX(mean12sd)
+                INTO        v_med_rate_log, v_mean5sd_log, v_mean7sd_log, v_mean8sd_log, v_mean10sd_log,
+                            v_mean12sd_log
+                FROM        ai_outlier_stats
+                WHERE        year = v_stat_year AND
+                            chem_code = p_chem_code AND
+                            ago_ind = v_ago_ind AND
+                            unit_treated = v_gen_unit_treated;
+            EXCEPTION
+                WHEN OTHERS THEN
+                    v_med_rate_log := NULL;
+                    v_mean5sd_log := NULL;
+                    v_mean7sd_log := NULL;
+                    v_mean8sd_log := NULL;
+                    v_mean10sd_log := NULL;
+                    v_mean12sd_log := NULL;
+            END;
+        ELSE -- An AI group is found for this record.
+            BEGIN
+                SELECT    median_rate, mean5sd, mean7sd, mean8sd, mean10sd,
+                            mean12sd
+                INTO        v_med_rate_log, v_mean5sd_log, v_mean7sd_log, v_mean8sd_log, v_mean10sd_log,
+                            v_mean12sd_log
+                FROM        ai_outlier_stats
+                WHERE        year = v_stat_year AND
+                            chem_code = p_chem_code AND
+                            ai_group = v_ai_group AND
+                            ago_ind = v_ago_ind AND
+                            unit_treated = v_gen_unit_treated;
+            EXCEPTION
+                WHEN OTHERS THEN
+                    v_med_rate_log := NULL;
+                    v_mean5sd_log := NULL;
+                    v_mean7sd_log := NULL;
+                    v_mean8sd_log := NULL;
+                    v_mean10sd_log := NULL;
+                    v_mean12sd_log := NULL;
+            END;
+
+        END IF;
+
+        /*
+        DBMS_OUTPUT.PUT_LINE('v_stat_year = '||v_stat_year);
+        DBMS_OUTPUT.PUT_LINE('p_chem_code = '||p_chem_code);
+        DBMS_OUTPUT.PUT_LINE('v_med_rate_log = '||v_med_rate_log);
+        DBMS_OUTPUT.PUT_LINE('v_mean5sd_log = '||v_mean5sd_log);
+        */
+        /* We need to set a maximum value for each log value because trying
+            to calculate power() for a very large value ( > 100) will generate
+            a math error.
+            I have never seen a rate (with any unit treated) greater than
+            140,000,000 (which as log = 8.14)) so setting a maximum for
+            log = 10 should be plenty high.
+         */
+        IF v_med_rate_log < 10 THEN
+            v_med_rate := power(10, v_med_rate_log);
+        ELSE
+            v_med_rate := power(10, 10);
+        END IF;
+
+        IF v_mean5sd_log < 10 THEN
+            v_mean5sd := power(10, v_mean5sd_log);
+        ELSE
+            v_mean5sd := power(10, 10);
+        END IF;
+
+        IF v_mean7sd_log < 10 THEN
+            v_mean7sd := power(10, v_mean7sd_log);
+        ELSE
+            v_mean7sd := power(10, 10);
+        END IF;
+
+        IF v_mean8sd_log < 10 THEN
+            v_mean8sd := power(10, v_mean8sd_log);
+        ELSE
+            v_mean8sd := power(10, 10);
+        END IF;
+
+        IF v_mean10sd_log < 10 THEN
+            v_mean10sd := power(10, v_mean10sd_log);
+        ELSE
+            v_mean10sd := power(10, 10);
+        END IF;
+
+        IF v_mean12sd_log < 10 THEN
+            v_mean12sd := power(10, v_mean12sd_log);
+        ELSE
+            v_mean12sd := power(10, 10);
+        END IF;
 
         /*****************************************************************
         Get max label rate for this product, site, and unit treated.
@@ -242,16 +448,26 @@ BEGIN
             we need rate of AI.
          */
         BEGIN
-            SELECT   max_rate * 1.1
-            INTO     v_max_label
+            SELECT   max_rate
+            INTO     v_max_label_prod
             FROM     max_label_rates
             WHERE    prodno = p_prodno AND
                         unit_treated = v_gen_unit_treated;
         EXCEPTION
             WHEN OTHERS THEN
-                v_max_label := NULL;
+                v_max_label_prod := NULL;
         END;
 
+        /* Set max rate 10% higher than actual max label rate,
+            and get max rate for this AI in the product.
+         */
+        v_max_label := v_max_label_prod * 1.1 * p_prodchem_pct/100;
+
+        IF v_max_label > 0 THEN
+            v_max_label_log := log(10, v_max_label);
+        ELSE
+            v_max_label_log := NULL;
+        END IF;
 
         /**************************************************************
 
@@ -562,9 +778,6 @@ BEGIN
     END IF;
 
     -- DBMS_OUTPUT.PUT_LINE('4: p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
-
-
-
 
     /*********************************************************************************
         Get outliers in pounds AI per application.
