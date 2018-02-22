@@ -8,11 +8,18 @@ SET verify OFF
 SET trimspool ON
 SET numwidth 11
 
-DROP INDEX prod_chem_major_ai_ndx;
-CREATE INDEX prod_chem_major_ai_ndx ON prod_chem_major_ai
+DROP INDEX prod_chem_major_ai1_ndx;
+CREATE INDEX prod_chem_major_ai1_ndx ON prod_chem_major_ai
 	(prodno)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
+DROP INDEX prod_chem_major_ai2_ndx;
+CREATE INDEX prod_chem_major_ai2_ndx ON prod_chem_major_ai
+	(chem_code)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
 
 
 DROP INDEX pur_site_groups_ndx;
@@ -77,15 +84,22 @@ CREATE INDEX fixout_lbsapp_ndx ON fixed_outlier_lbs_app
 
 DROP INDEX fixout_rates_ais_ndx;
 CREATE INDEX fixout_rates_ais_ndx ON fixed_outlier_rates_ais
-	(ai_type, chem_code)
+	(ago_ind, unit_treated, site_type, chem_code)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
 DROP INDEX fixout_rates_ndx;
 CREATE INDEX fixout_rates_ndx ON fixed_outlier_rates
-	(ago_ind, unit_treated, ai_type)
+	(ago_ind, unit_treated, ai_rate_type, site_type)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
+DROP INDEX outlier_final_stats_ndx;
+CREATE INDEX outlier_final_stats_ndx ON outlier_final_stats
+	(ago_ind, unit_treated, ai_rate_type, site_type)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
 
 
 DROP INDEX prod_adjuvant_ndx;

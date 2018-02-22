@@ -95,7 +95,7 @@ COMMIT;
 DROP TABLE outlier_all_stats;
 CREATE TABLE outlier_all_stats
    (regno_short			VARCHAR2(20),
-	ago_ind        		VARCHAR2(1),
+    ago_ind             VARCHAR2(1),
     site_general        VARCHAR2(100),
     site_type           VARCHAR2(100),
     unit_treated 			VARCHAR2(1),
@@ -164,8 +164,9 @@ DECLARE
    CURSOR oas_cur IS
       SELECT   regno_short, ago_ind, site_general, unit_treated
       FROM     outlier_all_stats_temp
-      WHERE    regno_short = '100-1000' AND site_general = 'ANIMALS'
       ORDER BY regno_short, ago_ind, site_general, unit_treated;
+
+--   WHERE    regno_short = '100-1000' AND site_general = 'ANIMALS'
 
    CURSOR ai_cur(p_regno IN VARCHAR2) IS
       SELECT   DISTINCT chem_code, prodchem_pct, chemname
@@ -174,11 +175,11 @@ DECLARE
 BEGIN
    v_index := 0;
    FOR oas_rec IN oas_cur LOOP
-      DBMS_OUTPUT.PUT_LINE('********************************');
-      DBMS_OUTPUT.PUT_LINE('v_index = '||v_index);
-      DBMS_OUTPUT.PUT_LINE('oas_rec.regno_short = '||oas_rec.regno_short);
-      DBMS_OUTPUT.PUT_LINE('oas_rec.unit_treated = '||oas_rec.unit_treated);
-      DBMS_OUTPUT.PUT_LINE('oas_rec.ago_ind = '||oas_rec.ago_ind);
+      --DBMS_OUTPUT.PUT_LINE('********************************');
+      --DBMS_OUTPUT.PUT_LINE('v_index = '||v_index);
+      --DBMS_OUTPUT.PUT_LINE('oas_rec.regno_short = '||oas_rec.regno_short);
+      --DBMS_OUTPUT.PUT_LINE('oas_rec.unit_treated = '||oas_rec.unit_treated);
+      --DBMS_OUTPUT.PUT_LINE('oas_rec.ago_ind = '||oas_rec.ago_ind);
       IF oas_rec.ago_ind = 'N' THEN
          IF oas_rec.site_general = 'WATER_AREA' THEN
             v_site_type := 'WATER';
@@ -203,12 +204,12 @@ BEGIN
          v_unit_conversion := 1;
       END IF;
 
-      DBMS_OUTPUT.PUT_LINE('v_unit_conversion = '||v_unit_conversion);
-      DBMS_OUTPUT.PUT_LINE('v_unit_treated = '||v_unit_treated);
+      --DBMS_OUTPUT.PUT_LINE('v_unit_conversion = '||v_unit_conversion);
+      --DBMS_OUTPUT.PUT_LINE('v_unit_treated = '||v_unit_treated);
 
       v_outlier_limit_min := 1000000000000;
       FOR ai_rec IN ai_cur(oas_rec.regno_short) LOOP
-         DBMS_OUTPUT.PUT_LINE('ai_rec.chem_code = '||ai_rec.chem_code);
+         --DBMS_OUTPUT.PUT_LINE('ai_rec.chem_code = '||ai_rec.chem_code);
 
          /* Get fixed rate outliers.
           */
@@ -266,11 +267,11 @@ BEGIN
                   unit_treated = v_unit_treated;
 
          IF v_num_stat_recs = 0 AND v_fixed2 IS NULL THEN
-            DBMS_OUTPUT.PUT_LINE('No stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('No stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
             v_outlier_stats_exist := FALSE;
             CONTINUE;
          ELSIF v_num_stat_recs = 0 AND v_fixed2 > 0 THEN
-            DBMS_OUTPUT.PUT_LINE('Only fixed stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('Only fixed stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
             v_outlier_stats_exist := TRUE;
 
             v_mean5sd_prod := NULL;
@@ -280,7 +281,7 @@ BEGIN
             v_mean12sd_prod := NULL;
 
             v_ai_pct := ai_rec.prodchem_pct/100;
-            DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
+            --DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
             IF v_ai_pct > 0 THEN
                v_fixed1_prod := v_fixed1*v_unit_conversion/v_ai_pct;
                v_fixed2_prod := v_fixed2*v_unit_conversion/v_ai_pct;
@@ -293,9 +294,9 @@ BEGIN
                v_outlier_limit_min := NULL;
             END IF;
 
-            DBMS_OUTPUT.PUT_LINE('v_outlier_limit_min = '||v_outlier_limit_min);
+            --DBMS_OUTPUT.PUT_LINE('v_outlier_limit_min = '||v_outlier_limit_min);
          ELSE
-            DBMS_OUTPUT.PUT_LINE('Both fixed and outliersstats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('Both fixed and outliersstats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
             v_outlier_stats_exist := TRUE;
 
             BEGIN
@@ -353,7 +354,7 @@ BEGIN
 
             END IF;
 
-            DBMS_OUTPUT.PUT_LINE('log(v_mean5sd_rate) = '||v_mean5sd_rate);
+            --DBMS_OUTPUT.PUT_LINE('log(v_mean5sd_rate) = '||v_mean5sd_rate);
 
             v_mean5sd_rate := power(10, LEAST(v_mean5sd_rate, 15));
             v_mean7sd_rate := power(10, LEAST(v_mean7sd_rate, 15));
@@ -390,7 +391,7 @@ BEGIN
 
             v_outlier_limit := LEAST(v_mean_limit, v_fixed2);
 
-            DBMS_OUTPUT.PUT_LINE('v_outlier_limit = '||v_outlier_limit);
+            --DBMS_OUTPUT.PUT_LINE('v_outlier_limit = '||v_outlier_limit);
 
             /* Get the outlier limit for the product and
                choose the smallest outlier limit among all AIs
@@ -400,14 +401,14 @@ BEGIN
                in the outlier tables.
              */
             v_ai_pct := ai_rec.prodchem_pct/100;
-            DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
+            --DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
             IF v_ai_pct > 0 THEN
                v_outlier_limit_prod := v_outlier_limit*v_unit_conversion/v_ai_pct;
             ELSE
                v_outlier_limit_prod := NULL;
             END IF;
 
-            DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod = '||v_outlier_limit_prod);
+            --DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod = '||v_outlier_limit_prod);
             IF v_outlier_limit_prod < v_outlier_limit_min THEN
                v_outlier_limit_min := v_outlier_limit_prod;
                v_chem_code := ai_rec.chem_code;

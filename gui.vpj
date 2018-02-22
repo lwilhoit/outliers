@@ -21,6 +21,7 @@
             Name="Other Files"
             Filters=""
             GUID="{545C94BC-721F-4981-565B-6BC83A1F1C8F}">
+            <F N="cfo.sql"/>
             <F N="sql_py/check_value_outliers.sql"/>
             <F N="../sql_py/files.sql"/>
             <F N="sql_py/outlier_procedure.sql"/>

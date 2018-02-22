@@ -3,7 +3,7 @@ SET pagesize 75
 SET linesize 120
 SET termout ON
 SET feedback ON
-SET document OFF
+SET document ON
 SET verify OFF
 SET trimspool ON
 SET numwidth 11
@@ -135,6 +135,7 @@ BEGIN
    WHERE		table_name = 'FIXED_OUTLIER_RATES_AIS';
 
    IF v_table_exists > 0 THEN
+      EXECUTE IMMEDIATE 'DROP INDEX fixout_rates_ais_ndx';
       EXECUTE IMMEDIATE 'RENAME FIXED_OUTLIER_RATES_AIS TO FIXED_OUTLIER_RATES_AIS_OLD';
 		print_info('Renamed table FIXED_OUTLIER_RATES_AIS to FIXED_OUTLIER_RATES_AIS_OLD', :log_level);
    ELSE
@@ -900,7 +901,6 @@ INSERT INTO fixed_outlier_rates_stats
                     WHEN unit_treated = 'T' THEN 'P'
                     WHEN unit_treated = 'K' THEN 'C'
                     ELSE unit_treated END,
-                    ELSE unit_treated END unit_treated,
                CASE WHEN pur.record_id IN ('2', 'C') OR pur.site_code < 100 OR pur.site_code > 29500 THEN
                     CASE  WHEN site_code IN (65000, 65011, 65015, 65021, 65026, 65029, 65503, 65505) 
                           THEN 'WATER'
@@ -1036,6 +1036,12 @@ EXCEPTION
 END;
 /
 show errors
+
+CREATE INDEX fixout_rates_ais_ndx ON fixed_outlier_rates_ais
+	(ago_ind, unit_treated, site_type, chem_code)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
 
 PROMPT ________________________________________________
 
