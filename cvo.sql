@@ -47,7 +47,7 @@ IS
 
    --v_lbs_ai               NUMBER;
    --v_amount_treated       NUMBER;
-   v_gen_unit_treated   VARCHAR2(1);
+   --v_gen_unit_treated   VARCHAR2(1);
 
    v_has_outlier_limits    BOOLEAN;
    v_outlier_limit         NUMBER;
@@ -81,6 +81,12 @@ BEGIN
    p_replace_type := NULL;
 
    -- DBMS_OUTPUT.PUT_LINE('1: use_no = '||p_use_no||'; p_amt_prd_used = '||p_amt_prd_used);
+   DBMS_OUTPUT.PUT_LINE('p_record_id = '||p_record_id);
+   DBMS_OUTPUT.PUT_LINE('p_prodno = '||p_prodno);
+   DBMS_OUTPUT.PUT_LINE('p_site_code = '||p_site_code);
+   DBMS_OUTPUT.PUT_LINE('p_lbs_prd_used = '||p_lbs_prd_used);
+   DBMS_OUTPUT.PUT_LINE('p_acre_treated = '||p_acre_treated);
+   DBMS_OUTPUT.PUT_LINE('p_unit_treated = '||p_unit_treated);
 
    /* Get the record type
     */
@@ -117,6 +123,7 @@ BEGIN
     ********************************************************************************/
    IF p_acre_treated > 0 THEN
       v_prod_rate := p_lbs_prd_used/p_acre_treated;
+      DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
  
       BEGIN
          SELECT  fixed1, fixed2, fixed3, 
@@ -132,9 +139,13 @@ BEGIN
                  unit_treated = p_unit_treated;
 
          v_has_outlier_limits := TRUE;
+         DBMS_OUTPUT.PUT_LINE('v_has_outlier_limits = TRUE');
+         DBMS_OUTPUT.PUT_LINE('v_chem_code = '||v_chem_code);
+         DBMS_OUTPUT.PUT_LINE('v_chemname = '||v_chemname);
       EXCEPTION
          WHEN OTHERS THEN
             v_has_outlier_limits := FALSE;
+            DBMS_OUTPUT.PUT_LINE('v_has_outlier_limits = FALSE');
             v_fixed1 := NULL;
             v_fixed2 := NULL;
             v_fixed3 := NULL;
@@ -146,6 +157,8 @@ BEGIN
             v_chem_code := NULL;
             v_chemname := NULL;
       END;
+
+      
 
 
       /*****************************************************************
@@ -162,24 +175,29 @@ BEGIN
        Variable max_label in MAX_LABEL_RATES is product rate of use;
        we need rate of AI.
       */
-      v_gen_unit_treated := 
-         CASE p_unit_treated
-            WHEN 'S' THEN 'A'
-            WHEN 'K' THEN 'C'
-            WHEN 'T' THEN 'P'
-            ELSE p_unit_treated
-         END;
-
       BEGIN
-         SELECT   max_rate * 1.1
+         SELECT   CASE p_unit_treated
+                     WHEN 'S' THEN max_rate/43560
+                     WHEN 'K' THEN max_rate*1000
+                     WHEN 'T' THEN max_rate*2000
+                     ELSE max_rate
+                  END * 1.1
          INTO     v_max_label
          FROM     max_label_rates
          WHERE    prodno = p_prodno AND
-                  unit_treated = v_gen_unit_treated;
+                  unit_treated = 
+                     CASE p_unit_treated
+                        WHEN 'S' THEN 'A'
+                        WHEN 'K' THEN 'C'
+                        WHEN 'T' THEN 'P'
+                        ELSE p_unit_treated
+                     END;
       EXCEPTION
          WHEN OTHERS THEN
             v_max_label := NULL;
       END;
+
+      DBMS_OUTPUT.PUT_LINE('v_max_label = '||v_max_label);
 
 
       /**************************************************************
@@ -228,13 +246,16 @@ BEGIN
             SELECT   prodchem_pct
             INTO     v_prodchem_pct
             FROM     prod_chem
-            WHERE    prodno = p_prodno;
+            WHERE    prodno = p_prodno AND
+                     chem_code = v_chem_code;
          EXCEPTION
             WHEN OTHERS THEN
                v_prodchem_pct := NULL;
          END;
+         DBMS_OUTPUT.PUT_LINE('v_prodchem_pct = '||v_prodchem_pct);
 
          v_ai_rate := v_prod_rate*v_prodchem_pct/100;
+         DBMS_OUTPUT.PUT_LINE('v_ai_rate = '||v_ai_rate);
 
          IF v_ai_rate >= 100 THEN
             v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999,999,999');
@@ -274,24 +295,20 @@ BEGIN
 
          /* Get unit treated as full word.
           */
-         IF v_gen_unit_treated = 'A' THEN
-            v_unit_treated_word := 'acre';
-         ELSIF v_gen_unit_treated = 'C' THEN
-            v_unit_treated_word := 'cubic feet';
-         ELSIF v_gen_unit_treated = 'P' THEN
-            v_unit_treated_word := 'pound';
-         ELSIF v_gen_unit_treated = 'U' THEN
-            v_unit_treated_word := 'miscellaneous unit';
-         ELSE
-            v_unit_treated_word := 'unknown unit';
-         END IF;
+         v_unit_treated_word := 
+            CASE p_unit_treated
+                  WHEN 'A' THEN 'acre'
+                  WHEN 'S' THEN 'square feet'
+                  WHEN 'C' THEN 'cubic feet'
+                  WHEN 'K' THEN '1000 cubic feet'
+                  WHEN 'P' THEN 'pound'
+                  WHEN 'T' THEN 'ton'
+                  WHEN 'U' THEN 'miscellaneous unit'
+                  ELSE 'unknown unit'
+            END;
+
 
          /* Construct the comment.
-            This function returns only one comment string, so if there are more
-            than one AI, it needs to concatenate comments for all AIs,
-            or else somehow, summarize for all AIs.
-            But I think better to include each AI in comments.
-
           */
          IF v_ai_rate IS NOT NULL THEN
             p_comments :=
@@ -329,7 +346,7 @@ END Outliers_test;
 show errors
 
 
-EXECUTE Outliers_test('A', 64279, 2000, 50, 1, 'A', :comments, :estimated_field, :error_code, :error_type, :replace_type);
+EXECUTE Outliers_test('A', 64279, 2000, 55, 1, 'A', :comments, :estimated_field, :error_code, :error_type, :replace_type);
 print :error_code
 print :error_type
 print :comments
