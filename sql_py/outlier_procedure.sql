@@ -91,6 +91,32 @@ INSERT INTO outlier_all_stats_temp (regno_short, ago_ind, site_general, unit_tre
 
 COMMIT;
 */
+/*
+
+CREATE TABLE prodno_regno_short
+   (prodno        		INTEGER,
+    regno_short			VARCHAR2(20))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
+TABLESPACE pur_report;
+
+INSERT INTO prodno_regno_short
+   SELECT   prodno, mfg_firmno||'-'||label_seq_no
+   FROM     product;
+
+COMMIT;
+
+CREATE INDEX prodno_regno_short1_ndx ON prodno_regno_short
+	(regno_short)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
+CREATE INDEX prodno_regno_short2_ndx ON prodno_regno_short
+	(prodno)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
 DROP TABLE outlier_all_stats;
 CREATE TABLE outlier_all_stats
@@ -117,6 +143,7 @@ PCTFREE 3
 STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
+*/
 
 DECLARE
    v_site_type             VARCHAR2(50);
@@ -164,6 +191,7 @@ DECLARE
    CURSOR oas_cur IS
       SELECT   regno_short, ago_ind, site_general, unit_treated
       FROM     outlier_all_stats_temp
+      WHERE    regno_short > '11415-50001'
       ORDER BY regno_short, ago_ind, site_general, unit_treated;
 
 --   WHERE    regno_short = '100-1000' AND site_general = 'ANIMALS'
@@ -171,7 +199,10 @@ DECLARE
    CURSOR ai_cur(p_regno IN VARCHAR2) IS
       SELECT   DISTINCT chem_code, prodchem_pct, chemname
       FROM     prod_chem_major_ai left JOIN chemical using (chem_code)
-      WHERE    prodno IN (SELECT prodno FROM product WHERE mfg_firmno||'-'||label_seq_no = p_regno);
+                                  left JOIN prodno_regno_short using (prodno)
+      WHERE    regno_short = p_regno;
+     
+      --WHERE    prodno IN (SELECT prodno FROM product WHERE mfg_firmno||'-'||label_seq_no = p_regno);
 BEGIN
    v_index := 0;
    FOR oas_rec IN oas_cur LOOP
@@ -448,7 +479,7 @@ BEGIN
              v_outlier_limit_min);
 
          v_index := v_index + 1;
-         IF v_index > 1000 THEN
+         IF v_index > 100 THEN
             COMMIT;
             v_index := 0;
          END IF;

@@ -41,9 +41,10 @@ PROCEDURE Outliers
     p_mean10sd_lbsapp_outlier   OUT VARCHAR2,
     p_mean12sd_lbsapp_outlier   OUT VARCHAR2)
 IS
-   v_stat_year            INTEGER := NULL;
+   v_stat_year             INTEGER := NULL;
 
-   v_chemname            VARCHAR2(200);
+   v_chemname              VARCHAR2(200);
+   v_chem_code             INTEGER;
    v_ai_group            INTEGER := NULL;
    v_ai_group_lbsapp      INTEGER := NULL;
    v_ago_ind            VARCHAR2(1);
@@ -59,6 +60,7 @@ IS
    v_amount_treated       NUMBER;
    v_gen_unit_treated   VARCHAR2(1);
 
+   v_has_outlier_limits    BOOLEAN;
    v_ai_rate            NUMBER;           -- AI rate uses gen_unit_treated
    v_med_rate            NUMBER;          -- median rate uses gen_unit_treated
    v_fixed1               NUMBER := NULL;
@@ -129,6 +131,7 @@ IS
    v_ai_lbsapp_ch            VARCHAR2(100);
    v_med_lbsapp_ch         VARCHAR2(100);
 
+
 BEGIN
    p_comments := NULL;
    p_estimated_field := NULL;
@@ -186,7 +189,7 @@ BEGIN
       SELECT    chemname
       INTO      v_chemname
       FROM      chemical
-      WHERE      chem_code = p_chem_code;
+      WHERE     chem_code = p_chem_code;
    EXCEPTION
       WHEN OTHERS THEN
          v_chemname := NULL;
@@ -200,24 +203,40 @@ BEGIN
    IF p_acre_treated > 0 THEN
       v_prod_rate := p_lbs_prd_used/p_acre_treated;
 
-      SELECT  fixed1, fixed2, fixed3, 
-            mean5sd, mean7sd, mean8sd, mean10sd, mean12sd,
-            outlier_limit
-      INTO   v_fixed1, v_fixed2, v_fixed3,
-            v_mean5sd, v_mean7sd, v_mean8sd, v_mean10sd, v_mean12sd,
-            v_outlier_limit
-      FROM   outlier_all_stats
-      WHERE   regno_short = v_regno_short AND
-            ago_ind = v_ago_ind AND
-            site_general = v_site_general AND
-            unit_treated = v_gen_unit_treated;
+      BEGIN
+         SELECT  fixed1, fixed2, fixed3, 
+                 mean5sd, mean7sd, mean8sd, mean10sd, mean12sd,
+                 outlier_limit, chem_code, chemname
+         INTO    v_fixed1, v_fixed2, v_fixed3,
+                 v_mean5sd, v_mean7sd, v_mean8sd, v_mean10sd, v_mean12sd,
+                 v_outlier_limit, v_chem_code, v_chemname
+         FROM    outlier_all_stats
+         WHERE   regno_short = v_regno_short AND
+                 ago_ind = v_ago_ind AND
+                 site_general = v_site_general AND
+                 unit_treated = v_gen_unit_treated;
+
+         v_has_outlier_limits := TRUE;
+      EXCEPTION
+         WHEN OTHERS THEN
+            v_has_outlier_limits := FALSE;
+            v_fixed1 := NULL;
+            v_fixed2 := NULL;
+            v_fixed3 := NULL;
+            v_mean5sd := NULL;
+            v_mean7sd := NULL;
+            v_mean8sd := NULL;
+            v_mean10sd := NULL;
+            v_mean12sd := NULL;
+            v_chem_code := NULL;
+            v_chemname := NULL;
+      END;
 
 
       /* Get the most recent year from the ai_stats table;
          use that year's values to get median rates.
-       */
       BEGIN
-         SELECT   MAX(year)
+         SELECT  MAX(year)
          INTO    v_stat_year
          FROM    ai_outlier_stats;
 
@@ -225,6 +244,7 @@ BEGIN
          WHEN OTHERS THEN
             v_stat_year := NULL;
       END;
+       */
 
 
       /*****************************************************************
@@ -243,13 +263,13 @@ BEGIN
       */
      BEGIN
          SELECT   max_rate * 1.1
-         INTO   v_max_label
-         FROM    max_label_rates
-         WHERE   prodno = p_prodno AND
+         INTO     v_max_label
+         FROM     max_label_rates
+         WHERE    prodno = p_prodno AND
                   unit_treated = v_gen_unit_treated;
       EXCEPTION
          WHEN OTHERS THEN
-         v_max_label := NULL;
+            v_max_label := NULL;
       END;
 
 
@@ -266,53 +286,24 @@ BEGIN
       Note that if any argument in GREATEST (or LEAST) is NULL
       the function returns NULL no matter what other values are
       in other arguments.
+      COALESCE() returns the first non-null expression in the list.
       */
-
-      v_fixed1 := GREATEST(NVL(v_fixed1, 0), NVL(v_max_label, 0));
-      v_fixed2 := GREATEST(NVL(v_fixed2, 0), NVL(v_max_label, 0));
-      v_fixed3 := GREATEST(NVL(v_fixed3, 0), NVL(v_max_label, 0));
-      v_mean5sd := GREATEST(NVL(v_mean5sd, 0), NVL(v_max_label, 0));
-      v_mean7sd := GREATEST(NVL(v_mean7sd, 0), NVL(v_max_label, 0));
-      v_mean8sd := GREATEST(NVL(v_mean8sd, 0), NVL(v_max_label, 0));
-      v_mean10sd := GREATEST(NVL(v_mean10sd, 0), NVL(v_max_label, 0));
-      v_mean12sd := GREATEST(NVL(v_mean12sd, 0), NVL(v_max_label, 0));
-
-      IF v_fixed1 = 0 THEN
-         v_fixed1 := NULL;
-      END IF;
-
-      IF v_fixed2 = 0 THEN
-         v_fixed2 := NULL;
-      END IF;
-
-      IF v_fixed3 = 0 THEN
-         v_fixed3 := NULL;
-      END IF;
-
-      IF v_mean5sd = 0 THEN
-         v_mean5sd := NULL;
-      END IF;
-
-      IF v_mean7sd = 0 THEN
-         v_mean7sd := NULL;
-      END IF;
-
-      IF v_mean8sd = 0 THEN
-         v_mean8sd := NULL;
-      END IF;
-
-      IF v_mean10sd = 0 THEN
-         v_mean10sd := NULL;
-      END IF;
-
-      IF v_mean12sd = 0 THEN
-         v_mean12sd := NULL;
+      IF v_has_outlier_limits THEN
+         v_fixed1 := COALESCE(GREATEST(v_fixed1, v_max_label), v_fixed1, v_max_label);
+         v_fixed2 := COALESCE(GREATEST(v_fixed2, v_max_label), v_fixed2, v_max_label);
+         v_fixed3 := COALESCE(GREATEST(v_fixed3, v_max_label), v_fixed3, v_max_label);
+         v_mean5sd := COALESCE(GREATEST(v_mean5sd, v_max_label), v_mean5sd, v_max_label);
+         v_mean7sd := COALESCE(GREATEST(v_mean7sd, v_max_label), v_mean7sd, v_max_label);
+         v_mean8sd := COALESCE(GREATEST(v_mean8sd, v_max_label), v_mean8sd, v_max_label);
+         v_mean10sd := COALESCE(GREATEST(v_mean10sd, v_max_label), v_mean10sd, v_max_label);
+         v_mean12sd := COALESCE(GREATEST(v_mean12sd, v_max_label), v_mean12sd, v_max_label);
       END IF;
 
       /* Determine if this rate is an outlier by each criterion.
        */
       IF v_ai_rate > 0 AND
-         ((v_ai_rate > v_fixed1 AND v_fixed1 IS NOT NULL) OR
+         ((v_ai_rate > v_max_label AND v_max_label IS NOT NULL) OR
+          (v_ai_rate > v_fixed1 AND v_fixed1 IS NOT NULL) OR
           (v_ai_rate > v_fixed2 AND v_fixed2 IS NOT NULL) OR
           (v_ai_rate > v_fixed3 AND v_fixed3 IS NOT NULL) OR
           (v_ai_rate > v_mean5sd AND v_mean5sd IS NOT NULL) OR
