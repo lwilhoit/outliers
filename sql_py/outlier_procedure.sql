@@ -127,7 +127,9 @@ CREATE TABLE outlier_all_stats
     unit_treated 			VARCHAR2(1),
     chem_code           INTEGER,
     chemname            VARCHAR2(200), -- The AI which resulted in this product having outlier
+    prodchem_pct        NUMBER,
     ai_rate_type        VARCHAR2(50),
+    median              NUMBER,
     mean5sd   				NUMBER,
     mean7sd   				NUMBER,
     mean8sd   				NUMBER,

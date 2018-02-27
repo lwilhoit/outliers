@@ -9,6 +9,14 @@ SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 
+variable fixed1 VARCHAR2(1);
+variable fixed2 VARCHAR2(1);
+variable fixed3 VARCHAR2(1);
+variable mean5 VARCHAR2(1);
+variable mean7 VARCHAR2(1);
+variable mean8 VARCHAR2(1);
+variable mean10 VARCHAR2(1);
+variable mean12 VARCHAR2(1);
 variable comments VARCHAR2(1000);
 variable estimated_field VARCHAR2(100);
 variable error_code NUMBER;
@@ -25,6 +33,15 @@ CREATE OR REPLACE PROCEDURE Outliers_test
     p_lbs_prd_used IN NUMBER,
     p_acre_treated IN NUMBER,
     p_unit_treated IN VARCHAR2,
+
+    p_fixed1_rate_outlier OUT VARCHAR2,
+    p_fixed2_rate_outlier OUT VARCHAR2,
+    p_fixed3_rate_outlier OUT VARCHAR2,
+    p_mean5sd_rate_outlier OUT VARCHAR2,
+    p_mean7sd_rate_outlier OUT VARCHAR2,
+    p_mean8sd_rate_outlier OUT VARCHAR2,
+    p_mean10sd_rate_outlier OUT VARCHAR2,
+    p_mean12sd_rate_outlier OUT VARCHAR2,
 
     p_comments OUT VARCHAR2,
     p_estimated_field OUT VARCHAR2,
@@ -53,19 +70,21 @@ IS
    v_outlier_limit         NUMBER;
    v_prod_rate             NUMBER;
    v_ai_rate            NUMBER;           -- AI rate uses gen_unit_treated
-   --v_med_rate            NUMBER;          -- median rate uses gen_unit_treated
-   v_fixed1               NUMBER := NULL;
-   v_fixed2               NUMBER := NULL;
-   v_fixed3               NUMBER := NULL;
-   v_mean5sd            NUMBER := NULL;
-   v_mean7sd            NUMBER := NULL;
-   v_mean8sd            NUMBER := NULL;
-   v_mean10sd            NUMBER := NULL;
-   v_mean12sd            NUMBER := NULL;
-   v_max_label            NUMBER;
+   v_median_prod            NUMBER;          
+   v_median_ai            NUMBER;          
+   v_fixed1_prod               NUMBER := NULL;
+   v_fixed2_prod               NUMBER := NULL;
+   v_fixed3_prod               NUMBER := NULL;
+   v_mean5sd_prod            NUMBER := NULL;
+   v_mean7sd_prod            NUMBER := NULL;
+   v_mean8sd_prod            NUMBER := NULL;
+   v_mean10sd_prod            NUMBER := NULL;
+   v_mean12sd_prod            NUMBER := NULL;
+   v_max_label_prod            NUMBER;
 
    v_ai_rate_ch            VARCHAR2(100);
-   -- v_med_rate_ch           VARCHAR2(100);
+   v_prod_rate_ch            VARCHAR2(100);
+   v_median_ai_ch           VARCHAR2(100);
    v_max_label_ch          VARCHAR2(100);
    v_unit_treated_word     VARCHAR2(100);
 
@@ -127,11 +146,11 @@ BEGIN
  
       BEGIN
          SELECT  fixed1, fixed2, fixed3, 
-                 mean5sd, mean7sd, mean8sd, mean10sd, mean12sd,
-                 outlier_limit, chem_code, chemname
-         INTO    v_fixed1, v_fixed2, v_fixed3,
-                 v_mean5sd, v_mean7sd, v_mean8sd, v_mean10sd, v_mean12sd,
-                 v_outlier_limit, v_chem_code, v_chemname
+                 median, mean5sd, mean7sd, mean8sd, mean10sd, mean12sd,
+                 outlier_limit, chem_code, chemname, prodchem_pct
+         INTO    v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
+                 v_median_prod, v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod,
+                 v_outlier_limit, v_chem_code, v_chemname, v_prodchem_pct
          FROM    outlier_all_stats
          WHERE   regno_short = v_regno_short AND
                  ago_ind = v_ago_ind AND
@@ -146,14 +165,16 @@ BEGIN
          WHEN OTHERS THEN
             v_has_outlier_limits := FALSE;
             DBMS_OUTPUT.PUT_LINE('v_has_outlier_limits = FALSE');
-            v_fixed1 := NULL;
-            v_fixed2 := NULL;
-            v_fixed3 := NULL;
-            v_mean5sd := NULL;
-            v_mean7sd := NULL;
-            v_mean8sd := NULL;
-            v_mean10sd := NULL;
-            v_mean12sd := NULL;
+            v_median_prod := NULL;
+            v_fixed1_prod := NULL;
+            v_fixed2_prod := NULL;
+            v_fixed3_prod := NULL;
+            v_mean5sd_prod := NULL;
+            v_mean7sd_prod := NULL;
+            v_mean8sd_prod := NULL;
+            v_mean10sd_prod := NULL;
+            v_mean12sd_prod := NULL;
+            v_outlier_limit := NULL;
             v_chem_code := NULL;
             v_chemname := NULL;
       END;
@@ -182,7 +203,7 @@ BEGIN
                      WHEN 'T' THEN max_rate*2000
                      ELSE max_rate
                   END * 1.1
-         INTO     v_max_label
+         INTO     v_max_label_prod
          FROM     max_label_rates
          WHERE    prodno = p_prodno AND
                   unit_treated = 
@@ -194,10 +215,10 @@ BEGIN
                      END;
       EXCEPTION
          WHEN OTHERS THEN
-            v_max_label := NULL;
+            v_max_label_prod := NULL;
       END;
 
-      DBMS_OUTPUT.PUT_LINE('v_max_label = '||v_max_label);
+      DBMS_OUTPUT.PUT_LINE('v_max_label_prod = '||v_max_label_prod);
 
 
       /**************************************************************
@@ -216,81 +237,93 @@ BEGIN
       COALESCE() returns the first non-null expression in the list.
       */
       IF v_has_outlier_limits THEN
-         v_fixed1 := COALESCE(GREATEST(v_fixed1, v_max_label), v_fixed1, v_max_label);
-         v_fixed2 := COALESCE(GREATEST(v_fixed2, v_max_label), v_fixed2, v_max_label);
-         v_fixed3 := COALESCE(GREATEST(v_fixed3, v_max_label), v_fixed3, v_max_label);
-         v_mean5sd := COALESCE(GREATEST(v_mean5sd, v_max_label), v_mean5sd, v_max_label);
-         v_mean7sd := COALESCE(GREATEST(v_mean7sd, v_max_label), v_mean7sd, v_max_label);
-         v_mean8sd := COALESCE(GREATEST(v_mean8sd, v_max_label), v_mean8sd, v_max_label);
-         v_mean10sd := COALESCE(GREATEST(v_mean10sd, v_max_label), v_mean10sd, v_max_label);
-         v_mean12sd := COALESCE(GREATEST(v_mean12sd, v_max_label), v_mean12sd, v_max_label);
+         v_fixed1_prod := COALESCE(GREATEST(v_fixed1_prod, v_max_label_prod), v_fixed1_prod, v_max_label_prod);
+         v_fixed2_prod := COALESCE(GREATEST(v_fixed2_prod, v_max_label_prod), v_fixed2_prod, v_max_label_prod);
+         v_fixed3_prod := COALESCE(GREATEST(v_fixed3_prod, v_max_label_prod), v_fixed3_prod, v_max_label_prod);
+         v_mean5sd_prod := COALESCE(GREATEST(v_mean5sd_prod, v_max_label_prod), v_mean5sd_prod, v_max_label_prod);
+         v_mean7sd_prod := COALESCE(GREATEST(v_mean7sd_prod, v_max_label_prod), v_mean7sd_prod, v_max_label_prod);
+         v_mean8sd_prod := COALESCE(GREATEST(v_mean8sd_prod, v_max_label_prod), v_mean8sd_prod, v_max_label_prod);
+         v_mean10sd_prod := COALESCE(GREATEST(v_mean10sd_prod, v_max_label_prod), v_mean10sd_prod, v_max_label_prod);
+         v_mean12sd_prod := COALESCE(GREATEST(v_mean12sd_prod, v_max_label_prod), v_mean12sd_prod, v_max_label_prod);
       END IF;
 
       /* Determine if this rate is an outlier by each criterion.
        */
       IF v_prod_rate > 0 AND
-         ((v_prod_rate > v_max_label AND v_max_label IS NOT NULL) OR
-          (v_prod_rate > v_fixed1 AND v_fixed1 IS NOT NULL) OR
-          (v_prod_rate > v_fixed2 AND v_fixed2 IS NOT NULL) OR
-          (v_prod_rate > v_fixed3 AND v_fixed3 IS NOT NULL) OR
-          (v_prod_rate > v_mean5sd AND v_mean5sd IS NOT NULL) OR
-          (v_prod_rate > v_mean7sd AND v_mean7sd IS NOT NULL) OR
-          (v_prod_rate > v_mean8sd AND v_mean8sd IS NOT NULL) OR
-          (v_prod_rate > v_mean10sd AND v_mean10sd IS NOT NULL) OR
-          (v_prod_rate > v_mean12sd AND v_mean12sd IS NOT NULL))
+         ((v_prod_rate > v_max_label_prod AND v_max_label_prod IS NOT NULL) OR
+          (v_prod_rate > v_fixed1_prod AND v_fixed1_prod IS NOT NULL) OR
+          (v_prod_rate > v_fixed2_prod AND v_fixed2_prod IS NOT NULL) OR
+          (v_prod_rate > v_fixed3_prod AND v_fixed3_prod IS NOT NULL) OR
+          (v_prod_rate > v_mean5sd_prod AND v_mean5sd_prod IS NOT NULL) OR
+          (v_prod_rate > v_mean7sd_prod AND v_mean7sd_prod IS NOT NULL) OR
+          (v_prod_rate > v_mean8sd_prod AND v_mean8sd_prod IS NOT NULL) OR
+          (v_prod_rate > v_mean10sd_prod AND v_mean10sd_prod IS NOT NULL) OR
+          (v_prod_rate > v_mean12sd_prod AND v_mean12sd_prod IS NOT NULL))
       THEN
          /* For rates of use set number of decimals to display
             based on size of the rate.
           */
-         BEGIN
-            SELECT   prodchem_pct
-            INTO     v_prodchem_pct
-            FROM     prod_chem
-            WHERE    prodno = p_prodno AND
-                     chem_code = v_chem_code;
-         EXCEPTION
-            WHEN OTHERS THEN
-               v_prodchem_pct := NULL;
-         END;
-         DBMS_OUTPUT.PUT_LINE('v_prodchem_pct = '||v_prodchem_pct);
-
          v_ai_rate := v_prod_rate*v_prodchem_pct/100;
+         v_median_ai := v_median_prod*v_prodchem_pct/100;
+
          DBMS_OUTPUT.PUT_LINE('v_ai_rate = '||v_ai_rate);
+         /*
+         DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
+         DBMS_OUTPUT.PUT_LINE('v_fixed1_prod = '||v_fixed1_prod);
+         DBMS_OUTPUT.PUT_LINE('v_fixed2_prod = '||v_fixed2_prod);
+         DBMS_OUTPUT.PUT_LINE('v_fixed3_prod = '||v_fixed3_prod);
+         DBMS_OUTPUT.PUT_LINE('v_mean5sd_prod = '||v_mean5sd_prod);
+         DBMS_OUTPUT.PUT_LINE('v_mean7sd_prod = '||v_mean7sd_prod);
+         DBMS_OUTPUT.PUT_LINE('v_mean8sd_prod = '||v_mean8sd_prod);
+         DBMS_OUTPUT.PUT_LINE('v_mean10sd_prod = '||v_mean10sd_prod);
+         DBMS_OUTPUT.PUT_LINE('v_mean12sd_prod = '||v_mean12sd_prod);
+         DBMS_OUTPUT.PUT_LINE('v_prodchem_pct = '||v_prodchem_pct);
+         */
 
          IF v_ai_rate >= 100 THEN
             v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999,999,999');
          ELSIF v_ai_rate >= 1.0 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999.99');
+            v_ai_rate_ch := CASE WHEN REMAINDER(v_ai_rate, 1) = 0 THEN TO_CHAR(v_ai_rate, 'FM9,999') ELSE TO_CHAR(v_ai_rate, 'FM9,999.99') END;
+            --v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999.99');
          ELSIF v_ai_rate >= 0.001 THEN
             v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.99999');
          ELSE
             v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999999');
          END IF;
 
+         IF v_prod_rate >= 100 THEN
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM9,999,999,999');
+         ELSIF v_prod_rate >= 1.0 THEN
+            v_prod_rate_ch := CASE WHEN REMAINDER(v_prod_rate, 1) = 0 THEN TO_CHAR(v_prod_rate, 'FM9,999') ELSE TO_CHAR(v_prod_rate, 'FM9,999.99') END;
+            --v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM9,999.99');
+         ELSIF v_prod_rate >= 0.001 THEN
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.99999');
+         ELSE
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999999');
+         END IF;
+
          /* Get median rate
           */
-         /*
-         IF v_med_rate >= 100 THEN
-            v_med_rate_ch := TO_CHAR(v_med_rate, 'FM9,999,999,999');
-         ELSIF v_med_rate >= 1.0 THEN
-            v_med_rate_ch := TO_CHAR(v_med_rate, 'FM9,999.99');
-         ELSIF v_med_rate >= 0.001 THEN
-            v_med_rate_ch := TO_CHAR(v_med_rate, 'FM0.99999');
+         IF v_median_ai >= 100 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM9,999,999,999');
+         ELSIF v_median_ai >= 1.0 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM9,999.99');
+         ELSIF v_median_ai >= 0.001 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.99999');
          ELSE
-            v_med_rate_ch := TO_CHAR(v_med_rate, 'FM0.9999999');
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.9999999');
          END IF;
-         */
 
          /* Get maximum label rate
           */
-         IF v_max_label >= 100 THEN
-            v_max_label_ch := TO_CHAR(v_max_label, 'FM9,999,999,999');
-         ELSIF v_max_label >= 1.0 THEN
-            v_max_label_ch := TO_CHAR(v_max_label, 'FM9,999.99');
-         ELSIF v_max_label >= 0.001 THEN
-            v_max_label_ch := TO_CHAR(v_max_label, 'FM0.99999');
+         IF v_max_label_prod >= 100 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM9,999,999,999');
+         ELSIF v_max_label_prod >= 1.0 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM9,999.99');
+         ELSIF v_max_label_prod >= 0.001 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.99999');
          ELSE
-            v_max_label_ch := TO_CHAR(v_max_label, 'FM0.9999999');
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.9999999');
          END IF;
 
          /* Get unit treated as full word.
@@ -312,24 +345,74 @@ BEGIN
           */
          IF v_ai_rate IS NOT NULL THEN
             p_comments :=
-               'Reported rate of use = '||v_ai_rate_ch||' pounds AI per '||v_unit_treated_word||' for '||INITCAP(v_chemname)||'; ';
-         ELSE
-            p_comments := 'Reported rate of use is unknown;';
-         END IF;
-
-         /*
-         IF v_med_rate IS NOT NULL THEN
+               'Reported rate of use = '||v_ai_rate_ch||' pounds of '||lower(v_chemname)||' per '||v_unit_treated_word;
             p_comments := p_comments||
-               'median rate of use in '||v_stat_year||' = '||v_med_rate_ch||' pounds AI per '||v_unit_treated_word;
+               ' (or '||v_prod_rate_ch||' pounds of product per '||v_unit_treated_word||'); ';
+         ELSE
+            p_comments := 'Reported rate of use is unknown; ';
+         END IF;
+         
+         IF v_median_ai IS NOT NULL THEN
+            p_comments := p_comments||
+               'median rate of use is '||v_median_ai_ch||' pounds AI per '||v_unit_treated_word;
          ELSE
             p_comments := p_comments||
-               'median rate of use in '||v_stat_year||' is unknown';
-         END IF;
-         */
+               'median rate of use is unknown';
+         END IF;         
 
-         IF v_max_label > 0 THEN
+         IF v_max_label_prod > 0 THEN
             p_comments := p_comments||
                '; maximum label rate = '||v_max_label_ch||' pounds AI per '||v_unit_treated_word;
+         END IF;
+
+         p_fixed1_rate_outlier := NULL;
+         p_fixed2_rate_outlier := NULL;
+         p_fixed3_rate_outlier := NULL;
+         p_mean5sd_rate_outlier := NULL;
+         p_mean7sd_rate_outlier := NULL;
+         p_mean8sd_rate_outlier := NULL;
+         p_mean10sd_rate_outlier := NULL;
+         p_mean12sd_rate_outlier := NULL;
+
+         IF v_prod_rate > v_fixed3_prod AND v_fixed3_prod > 0 THEN
+            p_fixed1_rate_outlier := 'X';
+            p_fixed2_rate_outlier := 'X';
+            p_fixed3_rate_outlier := 'X';
+            p_comments := p_comments||'; rate > fixed3 limit';
+         ELSIF v_prod_rate > v_fixed2_prod AND v_fixed2_prod > 0 THEN
+            p_fixed1_rate_outlier := 'X';
+            p_fixed2_rate_outlier := 'X';
+            p_comments := p_comments||'; rate > fixed2 limit';
+         ELSIF v_prod_rate > v_fixed1_prod AND v_fixed1_prod > 0 THEN
+            p_fixed1_rate_outlier := 'X';
+            p_comments := p_comments||'; rate > fixed1 limit';
+         END IF;
+
+         IF v_prod_rate > v_mean12sd_prod AND v_mean12sd_prod > 0 THEN
+            p_mean5sd_rate_outlier := 'X';
+            p_mean7sd_rate_outlier := 'X';
+            p_mean8sd_rate_outlier := 'X';
+            p_mean10sd_rate_outlier := 'X';
+            p_mean12sd_rate_outlier := 'X';
+            p_comments := p_comments||'; rate > mean + 12*SD';
+         ELSIF v_prod_rate > v_mean10sd_prod AND v_mean10sd_prod > 0 THEN
+            p_mean5sd_rate_outlier := 'X';
+            p_mean7sd_rate_outlier := 'X';
+            p_mean8sd_rate_outlier := 'X';
+            p_mean10sd_rate_outlier := 'X';
+            p_comments := p_comments||'; rate > mean + 10*SD';
+         ELSIF v_prod_rate > v_mean8sd_prod AND v_mean8sd_prod > 0 THEN
+            p_mean5sd_rate_outlier := 'X';
+            p_mean7sd_rate_outlier := 'X';
+            p_mean8sd_rate_outlier := 'X';
+           p_comments := p_comments||'; rate > mean + 8*SD';
+         ELSIF v_prod_rate > v_mean7sd_prod AND v_mean7sd_prod > 0 THEN
+            p_mean5sd_rate_outlier := 'X';
+            p_mean7sd_rate_outlier := 'X';
+            p_comments := p_comments||'; rate > mean + 7*SD';
+         ELSIF v_prod_rate > v_mean5sd_prod AND v_mean5sd_prod > 0 THEN
+            p_mean5sd_rate_outlier := 'X';
+            p_comments := p_comments||'; rate > mean + 5*SD';
          END IF;
 
          p_estimated_field := NULL;
@@ -345,9 +428,44 @@ END Outliers_test;
 /
 show errors
 
-
-EXECUTE Outliers_test('A', 64279, 2000, 55, 1, 'A', :comments, :estimated_field, :error_code, :error_type, :replace_type);
+/*
+SELECT   ago_ind, product.prodno, chem_code, chemname, site_general, psg.site_code, oas.unit_treated,
+			median median_prod, median*prodchem_pct/100 median_ai,
+         CASE oas.unit_treated
+               WHEN 'S' THEN max_rate/43560
+               WHEN 'K' THEN max_rate*1000
+               WHEN 'T' THEN max_rate*2000
+               ELSE max_rate
+            END * 1.1 max_label_rate,
+         mean5sd, mean7sd, mean8sd, mean10sd, mean12sd, fixed1, fixed2, fixed3, outlier_limit
+FROM     outlier_all_stats oas left JOIN product ON regno_short = mfg_firmno||'-'||label_seq_no
+                           left JOIN pur_site_groups psg using (site_general)
+                           LEFT JOIN max_label_rates mlr on mlr.prodno = product.prodno AND
+                                                         mlr.unit_treated = CASE oas.unit_treated
+                                                                                 WHEN 'S' THEN 'A'
+                                                                                 WHEN 'K' THEN 'C'
+                                                                                 WHEN 'T' THEN 'P'
+                                                                                 ELSE oas.unit_treated
+                                                                              END
+WHERE    regno_short = '100-1004'
+ORDER BY regno_short, product.prodno, chem_code, site_general, site_code;
+*/
+--EXECUTE Outliers_test('A', 64279, 2000, 55, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
+--EXECUTE Outliers_test('A', 48721, 2002, 5, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
+--EXECUTE Outliers_test('A', 48721, 2002, 0.003, 1, 'S', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
+--EXECUTE Outliers_test('A', 48721, 2008, 80, 1, 'U', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
+--EXECUTE Outliers_test('A', 48721, 2008, 80, 1, 'U', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
+--EXECUTE Outliers_test('A', 49039, 10002, 8, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
+EXECUTE Outliers_test('A', 49039, 10002, 800, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
 print :error_code
 print :error_type
 print :comments
+print :fixed1
+print :fixed2
+print :fixed3
+print :mean5
+print :mean7
+print :mean8
+print :mean10
+print :mean12
 

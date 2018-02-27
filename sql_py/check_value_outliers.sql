@@ -397,6 +397,7 @@ BEGIN
             These boolean variables seem to serve no purpose other
             than in help determing which error_code to use.
           */
+         /*
          v_fixed1_error := FALSE;
          v_fixed2_error := FALSE;
          v_fixed3_error := FALSE;
@@ -405,22 +406,41 @@ BEGIN
          v_mean8sd_error := FALSE;
          v_mean10sd_error := FALSE;
          v_mean12sd_error := FALSE;
+         */
+         p_fixed1_rate_outlier := NULL;
+         p_fixed2_rate_outlier := NULL;
+         p_fixed3_rate_outlier := NULL;
+         p_mean5sd_rate_outlier := NULL;
+         p_mean7sd_rate_outlier := NULL;
+         p_mean8sd_rate_outlier := NULL;
+         p_mean10sd_rate_outlier := NULL;
+         p_mean12sd_rate_outlier := NULL;
+
 
          IF v_ai_rate > v_fixed3 AND v_fixed3 > 0 THEN
-            v_fixed3_error := TRUE;
-            v_fixed2_error := TRUE;
-            v_fixed1_error := TRUE;
+            p_fixed1_rate_outlier := 'X';
+            p_fixed2_rate_outlier := 'X';
+            p_fixed3_rate_outlier := 'X';
+
+            --v_fixed3_error := TRUE;
+            -- v_fixed2_error := TRUE;
+            -- v_fixed1_error := TRUE;
             p_comments := p_comments||'; rate > fixed3 limit';
          ELSIF v_ai_rate > v_fixed2 AND v_fixed2 > 0 THEN
-            v_fixed2_error := TRUE;
-            v_fixed1_error := TRUE;
+            p_fixed1_rate_outlier := 'X';
+            p_fixed2_rate_outlier := 'X';
+            --v_fixed2_error := TRUE;
+            --v_fixed1_error := TRUE;
             p_comments := p_comments||'; rate > fixed2 limit';
          ELSIF v_ai_rate > v_fixed1 AND v_fixed1 > 0 THEN
-            v_fixed1_error := TRUE;
+            p_fixed1_rate_outlier := 'X';
+            --v_fixed1_error := TRUE;
             p_comments := p_comments||'; rate > fixed1 limit';
          END IF;
 
          IF v_ai_rate > v_mean12sd AND v_mean12sd > 0 THEN
+            p_mean5sd_rate_outlier := 'X';
+
             v_mean12sd_error := TRUE;
             v_mean10sd_error := TRUE;
             v_mean8sd_error := TRUE;
@@ -849,9 +869,13 @@ BEGIN
          v_mean12sd_lbsapp_error := FALSE;
 
          IF v_ai_lbsapp > v_fixed3_lbsapp AND v_fixed3_lbsapp > 0 THEN
-            v_fixed3_lbsapp_error := TRUE;
-            v_fixed2_lbsapp_error := TRUE;
-            v_fixed1_lbsapp_error := TRUE;
+            p_fixed1_lbsapp_outlier := 'X';
+            p_fixed2_lbsapp_outlier := 'X';
+            p_fixed3_lbsapp_outlier := 'X';
+
+            --v_fixed3_lbsapp_error := TRUE;
+            --v_fixed2_lbsapp_error := TRUE;
+            --v_fixed1_lbsapp_error := TRUE;
             p_comments := p_comments||'; lbs/app > fixed3 limit';
          ELSIF v_ai_lbsapp > v_fixed2_lbsapp AND v_fixed2_lbsapp > 0 THEN
             v_fixed2_lbsapp_error := TRUE;
