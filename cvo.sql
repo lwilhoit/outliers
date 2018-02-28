@@ -17,6 +17,7 @@ variable mean7 VARCHAR2(1);
 variable mean8 VARCHAR2(1);
 variable mean10 VARCHAR2(1);
 variable mean12 VARCHAR2(1);
+variable outlier_limit VARCHAR2(1);
 variable comments VARCHAR2(1000);
 variable estimated_field VARCHAR2(100);
 variable error_code NUMBER;
@@ -42,6 +43,7 @@ CREATE OR REPLACE PROCEDURE Outliers_test
     p_mean8sd_rate_outlier OUT VARCHAR2,
     p_mean10sd_rate_outlier OUT VARCHAR2,
     p_mean12sd_rate_outlier OUT VARCHAR2,
+    p_outlier_limit_outlier OUT VARCHAR2,
 
     p_comments OUT VARCHAR2,
     p_estimated_field OUT VARCHAR2,
@@ -415,11 +417,31 @@ BEGIN
             p_comments := p_comments||'; rate > mean + 5*SD';
          END IF;
 
+         IF v_prod_rate > v_outlier_limit AND v_outlier_limit > 0  THEN
+            p_outlier_limit_outlier := 'X';
+            p_comments := p_comments||'; rate > outlier limit';
+
+            p_estimated_field := NULL;
+            p_error_code := 75;
+            p_error_type := 'POSSIBLE';
+            p_replace_type := NULL;
+
+         END IF;
+
          p_estimated_field := NULL;
-         p_error_code := 75;
+         p_error_code := 76;
          p_error_type := 'POSSIBLE';
-         p_replace_type := NULL;
+         p_replace_type := 'SAME';
+
       END IF;
+
+   ELSE
+      p_comments := NULL;
+      p_estimated_field := NULL;
+      p_error_code := NULL;
+      p_error_type := NULL;
+      p_replace_type := NULL;
+
    END IF;
 EXCEPTION
    WHEN OTHERS THEN
@@ -428,7 +450,7 @@ END Outliers_test;
 /
 show errors
 
-/*
+
 SELECT   ago_ind, product.prodno, chem_code, chemname, site_general, psg.site_code, oas.unit_treated,
 			median median_prod, median*prodchem_pct/100 median_ai,
          CASE oas.unit_treated
@@ -449,6 +471,40 @@ FROM     outlier_all_stats oas left JOIN product ON regno_short = mfg_firmno||'-
                                                                               END
 WHERE    regno_short = '100-1004'
 ORDER BY regno_short, product.prodno, chem_code, site_general, site_code;
+
+
+SELECT   year, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END ag_ind, 
+         MAX(lbs_prd_used) max_lbs
+FROM     pur
+GROUP BY year, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END
+ORDER BY year, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END;
+
+SELECT   year, unit_treated, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END ag_ind, 
+         MAX(lbs_prd_used/acre_treated) max_rate
+FROM     pur
+WHERE    acre_treated > 0
+GROUP BY year, unit_treated, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END
+ORDER BY year, unit_treated, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END;
+
+SELECT   year, unit_treated_report unit, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END ag_ind, 
+         MAX(lbs_prd_used/acre_treated) max_rate,
+         MAX(prod_rate) max_rate2
+FROM     ai_raw_rates
+WHERE    acre_treated > 0
+GROUP BY year, unit_treated_report, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END
+ORDER BY year, unit_treated_report, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END;
+
+SELECT   year, unit_treated_report unit, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END ag_ind, 
+         lbs_prd_used/acre_treated rate
+FROM     ai_raw_rates
+WHERE    acre_treated > 0 AND
+         year = 2015 AND
+         unit_treated = 'S'
+GROUP BY year, unit_treated_report, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END
+ORDER BY lbs_prd_used/acre_treated DESC;
+
+
+
 */
 --EXECUTE Outliers_test('A', 64279, 2000, 55, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
 --EXECUTE Outliers_test('A', 48721, 2002, 5, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
@@ -456,7 +512,7 @@ ORDER BY regno_short, product.prodno, chem_code, site_general, site_code;
 --EXECUTE Outliers_test('A', 48721, 2008, 80, 1, 'U', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
 --EXECUTE Outliers_test('A', 48721, 2008, 80, 1, 'U', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
 --EXECUTE Outliers_test('A', 49039, 10002, 8, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
-EXECUTE Outliers_test('A', 49039, 10002, 800, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
+EXECUTE Outliers_test('A', 49039, 10002, 800, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :outlier_limit, :comments, :estimated_field, :error_code, :error_type, :replace_type);
 print :error_code
 print :error_type
 print :comments
@@ -468,4 +524,5 @@ print :mean7
 print :mean8
 print :mean10
 print :mean12
+print :outlier_limit
 

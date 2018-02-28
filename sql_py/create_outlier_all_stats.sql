@@ -123,6 +123,26 @@ CREATE INDEX prodno_regno_short2_ndx ON prodno_regno_short
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 */
 
+/*
+   Max product rates every found in PUR ag or nonag (or RAW_PUR after 1999):
+   A: 5,100,000
+   S:   358,000 (next highest was 20,000, then 6,000)
+   C:     5,500
+   K:   161,000 (next highest was 16,000)
+   P:     1,200
+   T:    38,000
+   U: 2,100,000 (in raw 2017, next highest was 440,000)
+
+   Set maximum rates:
+   A: 50,000,000
+   S:    500,000 
+   C:     50,000
+   K:  1,000,000 
+   P:     10,000
+   T:    500,000
+   U:  5,000,000 
+
+*/
 DROP TABLE outlier_all_stats;
 CREATE TABLE outlier_all_stats
    (regno_short			VARCHAR2(20),
@@ -155,7 +175,7 @@ DECLARE
    v_site_type             VARCHAR2(50);
    v_ai_adjuvant           VARCHAR2(1);
    v_ai_rate_type          VARCHAR2(50);
-   v_unit_treated          VARCHAR2(1);
+   v_gen_unit_treated      VARCHAR2(1);
    v_ai_group              INTEGER;
 
    v_fixed1                NUMBER;
@@ -185,6 +205,8 @@ DECLARE
    v_outlier_limit         NUMBER;
    v_outlier_limit_prod    NUMBER;
    v_outlier_limit_min     NUMBER;
+
+   v_max_rate              NUMBER;
 
    v_ai_pct                NUMBER;
    v_ai_pct_min            NUMBER;
@@ -229,21 +251,21 @@ BEGIN
       END IF;
 
       IF oas_rec.unit_treated = 'S' THEN
-         v_unit_treated := 'A';
+         v_gen_unit_treated := 'A';
          v_unit_conversion := 1/43560;
       ELSIF oas_rec.unit_treated = 'K' THEN
-         v_unit_treated := 'C';
+         v_gen_unit_treated := 'C';
          v_unit_conversion := 1000;
       ELSIF oas_rec.unit_treated = 'T' THEN
-         v_unit_treated := 'P';
+         v_gen_unit_treated := 'P';
          v_unit_conversion := 2000;
       ELSE
-         v_unit_treated := oas_rec.unit_treated;
+         v_gen_unit_treated := oas_rec.unit_treated;
          v_unit_conversion := 1;
       END IF;
 
       --DBMS_OUTPUT.PUT_LINE('v_unit_conversion = '||v_unit_conversion);
-      --DBMS_OUTPUT.PUT_LINE('v_unit_treated = '||v_unit_treated);
+      --DBMS_OUTPUT.PUT_LINE('v_gen_unit_treated = '||v_gen_unit_treated);
 
       v_outlier_limit_min := 1000000000000;
       FOR ai_rec IN ai_cur(oas_rec.regno_short) LOOP
@@ -269,7 +291,7 @@ BEGIN
                INTO     v_ai_rate_type
                FROM     fixed_outlier_rates_ais
                WHERE    ago_ind = oas_rec.ago_ind AND 
-                        unit_treated = v_unit_treated AND
+                        unit_treated = v_gen_unit_treated AND
                         site_type = v_site_type AND
                         chem_code = ai_rec.chem_code;
             EXCEPTION
@@ -283,7 +305,7 @@ BEGIN
             INTO     v_fixed1, v_fixed2, v_fixed3
             FROM     fixed_outlier_rates
             WHERE    ago_ind = oas_rec.ago_ind AND
-                     unit_treated = v_unit_treated AND
+                     unit_treated = v_gen_unit_treated AND
                      ai_rate_type = v_ai_rate_type AND
                      site_type = v_site_type;
          EXCEPTION
@@ -302,14 +324,14 @@ BEGIN
          FROM		pur_report.ai_outlier_stats
          WHERE		chem_code = ai_rec.chem_code AND
                   ago_ind = oas_rec.ago_ind AND
-                  unit_treated = v_unit_treated;
+                  unit_treated = v_gen_unit_treated;
 
          IF v_num_stat_recs = 0 AND v_fixed2 IS NULL THEN
-            --DBMS_OUTPUT.PUT_LINE('No stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('No stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_gen_unit_treated);
             v_outlier_stats_exist := FALSE;
             CONTINUE;
          ELSIF v_num_stat_recs = 0 AND v_fixed2 > 0 THEN
-            --DBMS_OUTPUT.PUT_LINE('Only fixed stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('Only fixed stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_gen_unit_treated);
             v_outlier_stats_exist := TRUE;
 
             v_median_prod := NULL;
@@ -335,7 +357,7 @@ BEGIN
 
             --DBMS_OUTPUT.PUT_LINE('v_outlier_limit_min = '||v_outlier_limit_min);
          ELSE
-            --DBMS_OUTPUT.PUT_LINE('Both fixed and outliersstats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('Both fixed and outliersstats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_gen_unit_treated);
             v_outlier_stats_exist := TRUE;
 
             BEGIN
@@ -346,7 +368,7 @@ BEGIN
                         regno_short = oas_rec.regno_short AND
                         site_general = oas_rec.site_general AND
                         ago_ind = oas_rec.ago_ind AND
-                        unit_treated = v_unit_treated;
+                        unit_treated = v_gen_unit_treated;
             EXCEPTION
                WHEN OTHERS THEN
                   v_ai_group := NULL;
@@ -363,7 +385,7 @@ BEGIN
                   FROM		pur_report.ai_outlier_stats
                   WHERE		chem_code = ai_rec.chem_code AND
                            ago_ind = oas_rec.ago_ind AND
-                           unit_treated = v_unit_treated;
+                           unit_treated = v_gen_unit_treated;
                EXCEPTION
                   WHEN OTHERS THEN
                      v_ai_group := 1;
@@ -382,7 +404,7 @@ BEGIN
                   WHERE		chem_code = ai_rec.chem_code AND
                            ai_group = v_ai_group AND
                            ago_ind = oas_rec.ago_ind AND
-                           unit_treated = v_unit_treated;
+                           unit_treated = v_gen_unit_treated;
                EXCEPTION
                   WHEN OTHERS THEN
                      v_median_rate := NULL;
@@ -409,7 +431,7 @@ BEGIN
                INTO     v_mean_limit_str
                FROM     outlier_final_stats
                WHERE    ago_ind = oas_rec.ago_ind AND
-                        unit_treated = v_unit_treated AND
+                        unit_treated = v_gen_unit_treated AND
                         ai_rate_type = v_ai_rate_type AND
                         site_type = v_site_type;
             EXCEPTION
@@ -481,6 +503,33 @@ BEGIN
          END IF;
 
       END LOOP;
+
+      /*
+         Set maximum rates:
+         A: 50,000,000
+         S:    500,000 
+         C:     50,000
+         K:  1,000,000 
+         P:     10,000
+         T:    500,000
+         U:  5,000,000 
+      */
+      v_max_rate := 
+         CASE oas_rec.unit_treated
+            WHEN 'A' THEN 50000000
+            WHEN 'S' THEN 500000
+            WHEN 'C' THEN 50000 
+            WHEN 'K' THEN 1000000
+            WHEN 'P' THEN 10000
+            WHEN 'T' THEN 500000
+            WHEN 'U' THEN 5000000
+         END;
+
+      v_mean5sd_prod := LEAST(v_mean5sd_prod, v_max_rate);
+      v_mean7sd_prod := LEAST(v_mean7sd_prod, v_max_rate);
+      v_mean8sd_prod := LEAST(v_mean8sd_prod, v_max_rate);
+      v_mean10sd_prod := LEAST(v_mean10sd_prod, v_max_rate);
+      v_mean12sd_prod := LEAST(v_mean12sd_prod, v_max_rate);
 
       IF v_outlier_stats_exist THEN
          INSERT INTO outlier_all_stats VALUES
