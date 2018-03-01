@@ -451,7 +451,7 @@ END Outliers_test;
 show errors
 
 
-SELECT   ago_ind, product.prodno, chem_code, chemname, site_general, psg.site_code, oas.unit_treated,
+SELECT   ago_ind, product.prodno, chem_code, chemname, ai_group, ai_rate_type, prodchem_pct, site_general, oas.site_type, psg.site_code, oas.unit_treated,
 			median median_prod, median*prodchem_pct/100 median_ai,
          CASE oas.unit_treated
                WHEN 'S' THEN max_rate/43560
@@ -469,8 +469,78 @@ FROM     outlier_all_stats oas left JOIN product ON regno_short = mfg_firmno||'-
                                                                                  WHEN 'T' THEN 'P'
                                                                                  ELSE oas.unit_treated
                                                                               END
-WHERE    regno_short = '100-1004'
-ORDER BY regno_short, product.prodno, chem_code, site_general, site_code;
+WHERE    regno_short = '100-1093'
+ORDER BY ago_ind, regno_short, product.prodno, chem_code, site_general, psg.site_code, oas.unit_treated;
+
+SELECT   ago_ind, 
+         CASE unit_treated
+               WHEN 'S' THEN 'A'
+               WHEN 'K' THEN 'C'
+               WHEN 'T' THEN 'P'
+               ELSE unit_treated
+            END unit_treated, 
+         ai_rate_type, site_type,
+         MIN(CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+            END*prodchem_pct/100) min_fixed2, 
+         MAX(CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+            END*prodchem_pct/100) max_fixed2
+FROM     outlier_all_stats
+GROUP BY ago_ind, 
+         CASE unit_treated
+               WHEN 'S' THEN 'A'
+               WHEN 'K' THEN 'C'
+               WHEN 'T' THEN 'P'
+               ELSE unit_treated
+            END unit_treated, 
+         ai_rate_type, site_type
+ORDER BY ago_ind, 
+         CASE unit_treated
+               WHEN 'S' THEN 'A'
+               WHEN 'K' THEN 'C'
+               WHEN 'T' THEN 'P'
+               ELSE unit_treated
+            END unit_treated, 
+         ai_rate_type, site_type;
+
+SELECT   ago_ind, 
+         CASE unit_treated
+               WHEN 'S' THEN 'A'
+               WHEN 'K' THEN 'C'
+               WHEN 'T' THEN 'P'
+               ELSE unit_treated
+            END gen_unit_treated, 
+         unit_treated,
+         ai_rate_type, site_type,
+         CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+            END*prodchem_pct/100 gen_fixed2_ai,
+         fixed2*prodchem_pct/100 fixed_ai,
+         fixed2
+FROM     outlier_all_stats
+WHERE    ago_ind = 'A' AND
+         unit_treated IN ('A', 'S') AND
+         ai_rate_type = 'NORMAL' AND
+         site_type = 'ALL'
+ORDER BY CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+         END DESC,
+         fixed2*prodchem_pct/100,
+         fixed2;
+
 
 
 SELECT   year, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END ag_ind, 
