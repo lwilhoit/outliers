@@ -541,6 +541,78 @@ ORDER BY CASE unit_treated
          fixed2*prodchem_pct/100,
          fixed2;
 
+SELECT   ago_ind,
+         CASE unit_treated
+               WHEN 'S' THEN 'A'
+               WHEN 'K' THEN 'C'
+               WHEN 'T' THEN 'P'
+               ELSE unit_treated
+            END gen_unit_treated,
+         unit_treated,
+         ai_rate_type, site_type,
+         product.prodno, chem_code, chemname, ai_group, prodchem_pct, 
+         site_code, site_name,
+         CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+            END*prodchem_pct/100 gen_fixed2_ai,
+         fixed2*prodchem_pct/100 fixed_ai,
+         fixed2, 
+         outlier_limit,
+         outlier_limit*prodchem_pct/100 outlier_limit_ai
+FROM     outlier_all_stats oas left JOIN product ON regno_short = mfg_firmno||'-'||label_seq_no
+                           left JOIN pur_site_groups psg using (site_general)
+WHERE    ago_ind = 'A' AND
+         unit_treated IN ('A', 'S') AND
+         ai_rate_type = 'NORMAL' AND
+         site_type = 'ALL' AND
+         prodno = 61490
+ORDER BY CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+         END DESC,
+         fixed2*prodchem_pct/100,
+         fixed2;
+
+SELECT   ago_ind,
+         CASE unit_treated
+               WHEN 'S' THEN 'A'
+               WHEN 'K' THEN 'C'
+               WHEN 'T' THEN 'P'
+               ELSE unit_treated
+            END gen_unit_treated,
+         unit_treated,
+         ai_rate_type, site_type,
+         regno_short,  chem_code, chemname, ai_group, prodchem_pct, 
+         CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+            END*prodchem_pct/100 gen_fixed2_ai,
+         fixed2*prodchem_pct/100 fixed_ai,
+         fixed2, 
+         outlier_limit,
+         outlier_limit*prodchem_pct/100 outlier_limit_ai
+FROM     outlier_all_stats oas 
+WHERE    ago_ind = 'A' AND
+         unit_treated IN ('A', 'S') AND
+         ai_rate_type = 'NORMAL' AND
+         site_type = 'ALL' AND
+         regno_short = '67986-1'
+ORDER BY CASE unit_treated
+               WHEN 'S' THEN fixed2/43560
+               WHEN 'K' THEN fixed2*1000
+               WHEN 'T' THEN fixed2*2000
+               ELSE fixed2
+         END DESC,
+         fixed2*prodchem_pct/100,
+         fixed2;
+
 
 
 SELECT   year, CASE WHEN record_id IN ('2', 'C', 'G') THEN 'N' ELSE 'A' END ag_ind, 
