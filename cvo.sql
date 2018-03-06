@@ -646,6 +646,27 @@ GROUP BY year, unit_treated_report, CASE WHEN record_id IN ('2', 'C', 'G') THEN 
 ORDER BY lbs_prd_used/acre_treated DESC;
 
 
+SELECT   ai_group, mean5sd, fixed2,
+         power(10, LEAST(mean5sd, 15)) mean5sd_pow,
+         power(10, LEAST(fixed2, 15)) fixed2_pow
+FROM     pur_report.ai_outlier_stats
+WHERE    ago_ind = 'A' AND
+         unit_treated = 'A' AND
+         chem_code = 5940;
+
+
+SELECT   regno_short, ai_group
+FROM     pur_report.ai_group_stats
+WHERE    ago_ind = 'A' AND
+         unit_treated = 'A' AND
+         site_general = 'CITRUS' AND
+         chem_code = 5940;
+
+               WHERE    chem_code = ai_rec.chem_code AND
+                        regno_short = oas_rec.regno_short AND
+                        site_general = oas_rec.site_general AND
+                        ago_ind = oas_rec.ago_ind AND
+                        unit_treated = v_gen_unit_treated;
 
 */
 --EXECUTE Outliers_test('A', 64279, 2000, 55, 1, 'A', :fixed1, :fixed2, :fixed3, :mean5, :mean7, :mean8, :mean10, :mean12, :comments, :estimated_field, :error_code, :error_type, :replace_type);
