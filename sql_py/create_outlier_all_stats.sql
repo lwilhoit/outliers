@@ -236,10 +236,10 @@ DECLARE
    CURSOR oas_cur IS
       SELECT   regno_short, ago_ind, site_general, unit_treated
       FROM     outlier_all_stats_temp
-      WHERE    regno_short = '100-1093'
       ORDER BY regno_short, ago_ind, site_general, unit_treated
       ;
 
+--   WHERE    regno_short = '100-1093'
 --   WHERE    regno_short = '100-1000' AND site_general = 'ANIMALS'
 /*
    WHERE    regno_short = '67986-1' AND

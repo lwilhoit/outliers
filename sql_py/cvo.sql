@@ -9,6 +9,109 @@ SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 
+DROP TABLE Outliers_test_results;
+CREATE TABLE Outliers_test_results
+   (use_no              INTEGER,
+    ago_ind             VARCHAR2(1),
+    record_id           VARCHAR2(1),
+    unit_treated 			VARCHAR2(1),
+    regno_short			VARCHAR2(20),
+    site_general        VARCHAR2(100),
+    site_type           VARCHAR2(100),
+    site_code           INTEGER,
+    site_name           VARCHAR2(100),
+    chem_code           INTEGER,
+    chemname            VARCHAR2(200), -- The AI which resulted in this product having outlier
+    prodchem_pct        NUMBER,
+    ai_rate_type        VARCHAR2(50),
+    prodno              INTEGER,
+    lbs_prd_used        NUMBER,
+    amt_treated         NUMBER,
+    acre_treated        NUMBER,
+    unit_treated_report VARCHAR2(1),
+    lbs_ai              NUMBER,
+    ai_rate             NUMBER,
+    prod_rate           NUMBER,
+    fixed1              VARCHAR2(1),
+    fixed2              VARCHAR2(1),
+    fixed3              VARCHAR2(1),
+    mean5sd   				VARCHAR2(1),
+    mean7sd   				VARCHAR2(1),
+    mean8sd   				VARCHAR2(1),
+    mean10sd   			VARCHAR2(1),
+    mean12sd   			VARCHAR2(1),
+    outlier_limit       VARCHAR2(1),
+    comments            VARCHAR2(2000),
+    estimated_field     VARCHAR2(100),
+    error_code          INTEGER,
+    error_type          VARCHAR2(100),
+    replace_type        VARCHAR2(100))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
+TABLESPACE pur_report;
+
+DECLARE
+   v_fixed1          VARCHAR2(1);
+   v_fixed2          VARCHAR2(1);
+   v_fixed3          VARCHAR2(1);
+   v_mean5           VARCHAR2(1);
+   v_mean7           VARCHAR2(1);
+   v_mean8           VARCHAR2(1);
+   v_mean10          VARCHAR2(1);
+   v_mean12          VARCHAR2(1);
+   v_outlier_limit   VARCHAR2(1);
+   v_comments        VARCHAR2(1000);
+   v_estimated_field VARCHAR2(100);
+   v_error_code      INTEGER;
+   v_error_type      VARCHAR2(100);
+   v_replace_type    VARCHAR2(100);
+
+   v_index           INTEGER;
+
+   CURSOR raw_cur IS
+      SELECT   *
+      FROM     ai_raw_rates left JOIN chemical using (chem_code)
+      WHERE    year = 2016 AND
+               use_no < 10000;
+BEGIN
+   v_index := 0;
+   FOR raw_rec IN raw_cur LOOP
+      Outliers_test(raw_rec.record_id, raw_rec.prodno, raw_rec.site_code, raw_rec.lbs_prd_used, 
+                    raw_rec.acre_treated, raw_rec.unit_treated_report, 
+                    v_fixed1, v_fixed2, v_fixed3, 
+                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
+                    v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
+
+      INSERT INTO Outliers_test_results VALUES
+         (raw_rec.use_no, raw_rec.ago_ind, raw_rec.record_id, raw_rec.unit_treated, raw_rec.regno_short, 
+          raw_rec.site_general, raw_rec.site_type, raw_rec.site_code, raw_rec.site_name,
+          raw_rec.chem_code, raw_rec.chemname, raw_rec.prodchem_pct,
+          raw_rec.ai_rate_type, 
+          raw_rec.prodno, raw_rec.lbs_prd_used, raw_rec.amt_treated, raw_rec.acre_treated, raw_rec.unit_treated_report, 
+          raw_rec.lbs_ai, raw_rec.ai_rate, raw_rec.prod_rate,
+          v_fixed1, v_fixed2, v_fixed3, 
+          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
+          v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
+
+      v_index := v_index + 1;
+      IF v_index > 100 THEN
+         v_index := 0;
+         COMMIT;
+      END IF;
+
+   END LOOP;
+   COMMIT;
+
+EXCEPTION
+   WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE(SQLERRM);
+END Outliers_test;
+/
+show errors
+
+
 variable fixed1 VARCHAR2(1);
 variable fixed2 VARCHAR2(1);
 variable fixed3 VARCHAR2(1);
@@ -23,6 +126,8 @@ variable estimated_field VARCHAR2(100);
 variable error_code NUMBER;
 variable error_type VARCHAR2(100);
 variable replace_type VARCHAR2(100);
+
+
 
 CREATE OR REPLACE PROCEDURE Outliers_test
    (--p_year IN NUMBER,
@@ -101,13 +206,13 @@ BEGIN
    p_error_type := NULL;
    p_replace_type := NULL;
 
-   -- DBMS_OUTPUT.PUT_LINE('1: use_no = '||p_use_no||'; p_amt_prd_used = '||p_amt_prd_used);
-   DBMS_OUTPUT.PUT_LINE('p_record_id = '||p_record_id);
-   DBMS_OUTPUT.PUT_LINE('p_prodno = '||p_prodno);
-   DBMS_OUTPUT.PUT_LINE('p_site_code = '||p_site_code);
-   DBMS_OUTPUT.PUT_LINE('p_lbs_prd_used = '||p_lbs_prd_used);
-   DBMS_OUTPUT.PUT_LINE('p_acre_treated = '||p_acre_treated);
-   DBMS_OUTPUT.PUT_LINE('p_unit_treated = '||p_unit_treated);
+   -- --DBMS_OUTPUT.PUT_LINE('1: use_no = '||p_use_no||'; p_amt_prd_used = '||p_amt_prd_used);
+   --DBMS_OUTPUT.PUT_LINE('p_record_id = '||p_record_id);
+   --DBMS_OUTPUT.PUT_LINE('p_prodno = '||p_prodno);
+   --DBMS_OUTPUT.PUT_LINE('p_site_code = '||p_site_code);
+   --DBMS_OUTPUT.PUT_LINE('p_lbs_prd_used = '||p_lbs_prd_used);
+   --DBMS_OUTPUT.PUT_LINE('p_acre_treated = '||p_acre_treated);
+   --DBMS_OUTPUT.PUT_LINE('p_unit_treated = '||p_unit_treated);
 
    /* Get the record type
     */
@@ -144,7 +249,7 @@ BEGIN
     ********************************************************************************/
    IF p_acre_treated > 0 THEN
       v_prod_rate := p_lbs_prd_used/p_acre_treated;
-      DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
+      --DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
  
       BEGIN
          SELECT  fixed1, fixed2, fixed3, 
@@ -160,13 +265,13 @@ BEGIN
                  unit_treated = p_unit_treated;
 
          v_has_outlier_limits := TRUE;
-         DBMS_OUTPUT.PUT_LINE('v_has_outlier_limits = TRUE');
-         DBMS_OUTPUT.PUT_LINE('v_chem_code = '||v_chem_code);
-         DBMS_OUTPUT.PUT_LINE('v_chemname = '||v_chemname);
+         --DBMS_OUTPUT.PUT_LINE('v_has_outlier_limits = TRUE');
+         --DBMS_OUTPUT.PUT_LINE('v_chem_code = '||v_chem_code);
+         --DBMS_OUTPUT.PUT_LINE('v_chemname = '||v_chemname);
       EXCEPTION
          WHEN OTHERS THEN
             v_has_outlier_limits := FALSE;
-            DBMS_OUTPUT.PUT_LINE('v_has_outlier_limits = FALSE');
+            --DBMS_OUTPUT.PUT_LINE('v_has_outlier_limits = FALSE');
             v_median_prod := NULL;
             v_fixed1_prod := NULL;
             v_fixed2_prod := NULL;
@@ -220,7 +325,7 @@ BEGIN
             v_max_label_prod := NULL;
       END;
 
-      DBMS_OUTPUT.PUT_LINE('v_max_label_prod = '||v_max_label_prod);
+      --DBMS_OUTPUT.PUT_LINE('v_max_label_prod = '||v_max_label_prod);
 
 
       /**************************************************************
@@ -268,18 +373,18 @@ BEGIN
          v_ai_rate := v_prod_rate*v_prodchem_pct/100;
          v_median_ai := v_median_prod*v_prodchem_pct/100;
 
-         DBMS_OUTPUT.PUT_LINE('v_ai_rate = '||v_ai_rate);
+         --DBMS_OUTPUT.PUT_LINE('v_ai_rate = '||v_ai_rate);
          /*
-         DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
-         DBMS_OUTPUT.PUT_LINE('v_fixed1_prod = '||v_fixed1_prod);
-         DBMS_OUTPUT.PUT_LINE('v_fixed2_prod = '||v_fixed2_prod);
-         DBMS_OUTPUT.PUT_LINE('v_fixed3_prod = '||v_fixed3_prod);
-         DBMS_OUTPUT.PUT_LINE('v_mean5sd_prod = '||v_mean5sd_prod);
-         DBMS_OUTPUT.PUT_LINE('v_mean7sd_prod = '||v_mean7sd_prod);
-         DBMS_OUTPUT.PUT_LINE('v_mean8sd_prod = '||v_mean8sd_prod);
-         DBMS_OUTPUT.PUT_LINE('v_mean10sd_prod = '||v_mean10sd_prod);
-         DBMS_OUTPUT.PUT_LINE('v_mean12sd_prod = '||v_mean12sd_prod);
-         DBMS_OUTPUT.PUT_LINE('v_prodchem_pct = '||v_prodchem_pct);
+         --DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
+         --DBMS_OUTPUT.PUT_LINE('v_fixed1_prod = '||v_fixed1_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_fixed2_prod = '||v_fixed2_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_fixed3_prod = '||v_fixed3_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_mean5sd_prod = '||v_mean5sd_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_mean7sd_prod = '||v_mean7sd_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_mean8sd_prod = '||v_mean8sd_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_mean10sd_prod = '||v_mean10sd_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_mean12sd_prod = '||v_mean12sd_prod);
+         --DBMS_OUTPUT.PUT_LINE('v_prodchem_pct = '||v_prodchem_pct);
          */
 
          IF v_ai_rate >= 100 THEN

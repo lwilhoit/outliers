@@ -68,6 +68,15 @@ CREATE INDEX ai_outlier_nonag_stats2_ndx ON ai_outlier_nonag_stats
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
 
+DROP INDEX outlier_all_stats1_ndx;
+CREATE INDEX outlier_all_stats1_ndx ON outlier_all_stats
+	(regno_short, ago_ind, site_general, unit_treated)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
+
+
+
 
 
 DROP INDEX fixout_lbsapp_ais_ndx;
