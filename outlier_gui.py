@@ -3,6 +3,9 @@
 Create tables to find high or outlier values in the PUR.
 """ 
 
+# First need to activate the appropriate environment by typing at the prompt:
+# activate pur3
+
 # To do:
 # 1. Print output to screen during long running processes.
 #    I tried doing that in long_running.py and test.sql
@@ -586,7 +589,7 @@ Label(param_frame, text="Number of years for PUR_RATES tables: ").grid(row=3, co
 Entry(param_frame, width=40, textvariable=num_stat_years_tk).grid(row=3, column=2)
 num_stat_years_tk.set("1")
 
-# Number of years in fixed tables?
+# Number of years in fixed tables? Normally set = 16
 Label(param_frame, text="Number of years for fixed tables: ").grid(row=4, column=1, sticky='w')
 Entry(param_frame, width=40, textvariable=num_fixed_years_tk).grid(row=4, column=2)
 num_fixed_years_tk.set("9")

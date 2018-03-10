@@ -13,18 +13,17 @@ SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
    This query takes about one hour to run.
 */
 
-/*
-DROP TABLE regno_ago_table;
-CREATE TABLE regno_ago_table
-   (regno_short	VARCHAR2(20),
-    ago_ind       VARCHAR2(1))
+
+DROP TABLE regno_table;
+CREATE TABLE regno_table
+   (regno_short	VARCHAR2(20))
 NOLOGGING
 PCTUSED 95
 PCTFREE 3
 TABLESPACE pur_report;
 
-INSERT INTO regno_ago_table
-   SELECT   DISTINCT regno_short, ago_ind
+INSERT INTO regno_table
+   SELECT   DISTINCT regno_short
    FROM     pur_rates_2017;
 
 COMMIT;
@@ -44,28 +43,9 @@ INSERT INTO site_general_table
 COMMIT;
 
 
-DROP TABLE unit_treated_table;
-CREATE TABLE unit_treated_table
-   (unit_treated  VARCHAR2(1))
-NOLOGGING
-PCTUSED 95
-PCTFREE 3
-TABLESPACE pur_report;
-
-INSERT INTO unit_treated_table VALUES ('A');
-INSERT INTO unit_treated_table VALUES ('C');
-INSERT INTO unit_treated_table VALUES ('P');
-INSERT INTO unit_treated_table VALUES ('S');
-INSERT INTO unit_treated_table VALUES ('K');
-INSERT INTO unit_treated_table VALUES ('T');
-INSERT INTO unit_treated_table VALUES ('U');
-COMMIT;
-
-DROP TABLE outlier_final_stats;
-CREATE TABLE outlier_final_stats
-   (ago_ind        		VARCHAR2(1),
-    unit_treated 			VARCHAR2(1),
-    ai_rate_type        VARCHAR2(20),
+DROP TABLE outlier_final_stats_nonag;
+CREATE TABLE outlier_final_stats_nonag
+   (lbs_ai_app_type     VARCHAR2(20),
     site_type           VARCHAR2(20),
     fixed2              NUMBER,
 	 mean_limit   			VARCHAR2(20))
@@ -76,22 +56,19 @@ STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
 
-DROP TABLE outlier_all_stats_temp;
-CREATE TABLE outlier_all_stats_temp
+DROP TABLE outlier_all_stats_nonag_temp;
+CREATE TABLE outlier_all_stats_nonag_temp
    (regno_short			VARCHAR2(20),
-	 ago_ind        		VARCHAR2(1),
-    site_general        VARCHAR2(100),
-    unit_treated 			VARCHAR2(1))
+    site_general        VARCHAR2(100))
 NOLOGGING
 PCTUSED 95
 PCTFREE 3
 STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
-INSERT INTO outlier_all_stats_temp (regno_short, ago_ind, site_general, unit_treated)
-   SELECT   regno_short, ago_ind, site_general, unit_treated
-   FROM     regno_ago_table CROSS JOIN site_general_table
-                        CROSS JOIN unit_treated_table;
+INSERT INTO outlier_all_stats_nonag_temp (regno_short, site_general)
+   SELECT   regno_short, site_general
+   FROM     regno_table CROSS JOIN site_general_table;
 
 COMMIT;
 */
@@ -143,18 +120,16 @@ CREATE INDEX prodno_regno_short2_ndx ON prodno_regno_short
    U:  5,000,000 
 
 */
-DROP TABLE outlier_all_stats;
-CREATE TABLE outlier_all_stats
+DROP TABLE outlier_all_stats_nonag;
+CREATE TABLE outlier_all_stats_nonag
    (regno_short			VARCHAR2(20),
-    ago_ind             VARCHAR2(1),
     site_general        VARCHAR2(100),
     site_type           VARCHAR2(100),
-    unit_treated 			VARCHAR2(1),
     chem_code           INTEGER,
     chemname            VARCHAR2(200), -- The AI which resulted in this product having outlier
     ai_group            INTEGER,
     prodchem_pct        NUMBER,
-    ai_rate_type        VARCHAR2(50),
+    lbs_ai_app_type     VARCHAR2(50),
     median              NUMBER,
     mean5sd   				NUMBER,
     mean7sd   				NUMBER,
@@ -176,8 +151,6 @@ CREATE TABLE outlier_all_stats
     fixed2_ai           NUMBER,
     fixed3_ai           NUMBER,
     outlier_limit_ai    NUMBER,
-    max_rate            NUMBER,
-    unit_conversion     NUMBER,
     mean_limit_prod_str VARCHAR2(100))
 NOLOGGING
 PCTUSED 95
@@ -189,8 +162,7 @@ TABLESPACE pur_report;
 DECLARE
    v_site_type             VARCHAR2(50);
    v_ai_adjuvant           VARCHAR2(1);
-   v_ai_rate_type          VARCHAR2(50);
-   v_gen_unit_treated      VARCHAR2(1);
+   v_lbs_ai_app_type          VARCHAR2(50);
    v_ai_group              INTEGER;
 
    v_fixed1_ai             NUMBER;
@@ -222,10 +194,8 @@ DECLARE
    v_outlier_limit_prod    NUMBER;
    v_outlier_limit_prod_min     NUMBER;
 
-   v_max_rate              NUMBER;
 
    v_ai_pct                NUMBER;
-   v_unit_conversion       NUMBER;
    v_chemname              VARCHAR2(200);
    v_chem_code             INTEGER;
 
@@ -234,9 +204,9 @@ DECLARE
    v_outlier_stats_exist   BOOLEAN;
 
    CURSOR oas_cur IS
-      SELECT   regno_short, ago_ind, site_general, unit_treated
-      FROM     outlier_all_stats_temp
-      ORDER BY regno_short, ago_ind, site_general, unit_treated
+      SELECT   regno_short, site_general
+      FROM     outlier_all_stats_nonag_temp
+      ORDER BY regno_short, site_general
       ;
 
 --   WHERE    regno_short = '100-1093'
@@ -264,34 +234,17 @@ BEGIN
       ----DBMS_OUTPUT.PUT_LINE('oas_rec.ago_ind = '||oas_rec.ago_ind);
       ----DBMS_OUTPUT.PUT_LINE('oas_rec.site_general = '||oas_rec.site_general);
 
-      IF oas_rec.ago_ind = 'N' THEN
-         IF oas_rec.site_general = 'WATER_AREA' THEN
-            v_site_type := 'WATER';
-         ELSE
-            v_site_type := 'OTHER';
-         END IF;
+      IF oas_rec.site_general = 'STRUCTURAL PEST CONTROL' THEN 
+         v_site_type := 'STRUCTURAL';
+      ELSIF oas_rec.site_general = 'LANDSCAPE MAINTENANCE' THEN
+         v_site_type := 'LANDSCAPE';
+      ELSIF oas_rec.site_general = 'RIGHTS OF WAY' THEN
+         v_site_type := 'RIGHTS_OF_WAY';
       ELSE
-         v_site_type := 'ALL';
+         v_site_type := 'OTHER';
       END IF;
+
       --DBMS_OUTPUT.PUT_LINE('v_site_type = '||v_site_type);
-
-      IF oas_rec.unit_treated = 'S' THEN
-         v_gen_unit_treated := 'A';
-         v_unit_conversion := 1/43560;
-      ELSIF oas_rec.unit_treated = 'K' THEN
-         v_gen_unit_treated := 'C';
-         v_unit_conversion := 1000;
-      ELSIF oas_rec.unit_treated = 'T' THEN
-         v_gen_unit_treated := 'P';
-         v_unit_conversion := 2000;
-      ELSE
-         v_gen_unit_treated := oas_rec.unit_treated;
-         v_unit_conversion := 1;
-      END IF;
-
-      --DBMS_OUTPUT.PUT_LINE('oas_rec.unit_treated = '||oas_rec.unit_treated);
-      --DBMS_OUTPUT.PUT_LINE('v_gen_unit_treated = '||v_gen_unit_treated);
-      --DBMS_OUTPUT.PUT_LINE('v_unit_conversion = '||v_unit_conversion);
 
       v_outlier_limit_prod_min := 1000000000000;
       v_outlier_stats_exist := FALSE;
@@ -310,32 +263,24 @@ BEGIN
                v_ai_adjuvant := 'N';
          END;
 
-         IF v_ai_adjuvant = 'Y' THEN
-            v_ai_rate_type := 'ADJUVANT';
-         ELSE
-            BEGIN
-               SELECT   ai_rate_type
-               INTO     v_ai_rate_type
-               FROM     fixed_outlier_rates_ais
-               WHERE    ago_ind = oas_rec.ago_ind AND 
-                        unit_treated = v_gen_unit_treated AND
-                        site_type = v_site_type AND
-                        chem_code = ai_rec.chem_code;
-            EXCEPTION
-               WHEN OTHERS THEN
-                  v_ai_rate_type := 'NORMAL';
-            END;
-         END IF;
+         BEGIN
+            SELECT   lbs_ai_app_type
+            INTO     v_lbs_ai_app_type
+            FROM     fixed_outlier_lbs_app_ais
+            WHERE    site_type = v_site_type AND
+                     chem_code = ai_rec.chem_code;
+         EXCEPTION
+            WHEN OTHERS THEN
+               v_lbs_ai_app_type := 'NORMAL';
+         END;
 
-         --DBMS_OUTPUT.PUT_LINE('v_ai_rate_type from FIXED_OUTLIER_RATES_AIS = '||v_ai_rate_type);
+         --DBMS_OUTPUT.PUT_LINE('v_lbs_ai_app_type from fixed_outlier_lbs_app_AIS = '||v_lbs_ai_app_type);
 
          BEGIN
             SELECT   rate1, rate2, rate3
             INTO     v_fixed1_ai, v_fixed2_ai, v_fixed3_ai
-            FROM     fixed_outlier_rates
-            WHERE    ago_ind = oas_rec.ago_ind AND
-                     unit_treated = v_gen_unit_treated AND
-                     ai_rate_type = v_ai_rate_type AND
+            FROM     fixed_outlier_lbs_app
+            WHERE    lbs_ai_app_type = v_lbs_ai_app_type AND
                      site_type = v_site_type;
          EXCEPTION
             WHEN OTHERS THEN
@@ -344,17 +289,15 @@ BEGIN
                v_fixed3_ai := NULL;
          END;
 
-         --DBMS_OUTPUT.PUT_LINE('v_fixed2_ai from FIXED_OUTLIER_RATES = '||v_fixed2_ai);
+         --DBMS_OUTPUT.PUT_LINE('v_fixed2_ai from fixed_outlier_lbs_app = '||v_fixed2_ai);
 
          /* Get other rate outliers, but first check that outlier stats
             exist for this situation.
           */
          SELECT   count(*)
          INTO     v_num_stat_recs
-         FROM		pur_report.ai_outlier_stats
-         WHERE		chem_code = ai_rec.chem_code AND
-                  ago_ind = oas_rec.ago_ind AND
-                  unit_treated = v_gen_unit_treated;
+         FROM		pur_report.ai_outlier_nonag_stats
+         WHERE		chem_code = ai_rec.chem_code;
 
          --DBMS_OUTPUT.PUT_LINE('v_num_stat_recs in AI_OUTLIER_STATS = '||v_num_stat_recs);
 
@@ -380,12 +323,10 @@ BEGIN
             BEGIN
                SELECT   ai_group
                INTO     v_ai_group
-               FROM     pur_report.ai_group_stats
+               FROM     pur_report.ai_group_nonag_stats
                WHERE    chem_code = ai_rec.chem_code AND
                         regno_short = oas_rec.regno_short AND
-                        site_general = oas_rec.site_general AND
-                        ago_ind = oas_rec.ago_ind AND
-                        unit_treated = v_gen_unit_treated;
+                        site_general = oas_rec.site_general;
             EXCEPTION
                WHEN OTHERS THEN
                   v_ai_group := NULL;
@@ -400,10 +341,8 @@ BEGIN
                BEGIN
                   SELECT	MAX(median_rate), MAX(mean5sd), MAX(mean7sd), MAX(mean8sd), MAX(mean10sd), MAX(mean12sd)
                   INTO		v_median_ai, v_mean5sd_ai, v_mean7sd_ai, v_mean8sd_ai, v_mean10sd_ai, v_mean12sd_ai
-                  FROM		pur_report.ai_outlier_stats
-                  WHERE		chem_code = ai_rec.chem_code AND
-                           ago_ind = oas_rec.ago_ind AND
-                           unit_treated = v_gen_unit_treated;
+                  FROM		pur_report.ai_outlier_nonag_stats
+                  WHERE		chem_code = ai_rec.chem_code;
                EXCEPTION
                   WHEN OTHERS THEN
                      v_median_ai := NULL;
@@ -417,11 +356,9 @@ BEGIN
                BEGIN
                   SELECT	median_rate, mean5sd, mean7sd, mean8sd, mean10sd, mean12sd
                   INTO		v_median_ai, v_mean5sd_ai, v_mean7sd_ai, v_mean8sd_ai, v_mean10sd_ai, v_mean12sd_ai
-                  FROM		pur_report.ai_outlier_stats
+                  FROM		pur_report.ai_outlier_nonag_stats
                   WHERE		chem_code = ai_rec.chem_code AND
-                           ai_group = v_ai_group AND
-                           ago_ind = oas_rec.ago_ind AND
-                           unit_treated = v_gen_unit_treated;
+                           ai_group = v_ai_group;
                EXCEPTION
                   WHEN OTHERS THEN
                      v_median_ai := NULL;
@@ -450,10 +387,10 @@ BEGIN
             BEGIN
                SELECT   mean_limit
                INTO     v_mean_limit_ai_str
-               FROM     outlier_final_stats
+               FROM     outlier_final_stats_nonag
                WHERE    ago_ind = oas_rec.ago_ind AND
                         unit_treated = v_gen_unit_treated AND
-                        ai_rate_type = v_ai_rate_type AND
+                        lbs_ai_app_type = v_lbs_ai_app_type AND
                         site_type = v_site_type;
             EXCEPTION
                WHEN OTHERS THEN
@@ -495,14 +432,13 @@ BEGIN
          v_ai_pct := ai_rec.prodchem_pct/100;
          ----DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
          IF v_ai_pct > 0 THEN
-            v_outlier_limit_prod := v_outlier_limit_ai*v_unit_conversion/v_ai_pct;
+            v_outlier_limit_prod := v_outlier_limit_ai/v_ai_pct;
          ELSE
             v_outlier_limit_prod := NULL;
          END IF;
 
          --DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||TO_CHAR(v_ai_pct, 'FM9,999.9999999'));
-         --DBMS_OUTPUT.PUT_LINE('v_unit_conversion = '||v_unit_conversion);
-         --DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod = v_outlier_limit_ai * v_unit_conversion / v_ai_pct');
+         --DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod = v_outlier_limit_ai / v_ai_pct');
          --DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod = '||TO_CHAR(v_outlier_limit_prod, 'FM9,999,999,999.99'));
          --DBMS_OUTPUT.PUT_LINE('v_outlier_limit_prod_min = '||TO_CHAR(v_outlier_limit_prod_min, 'FM9,999,999,999,999,999'));
 
@@ -513,15 +449,15 @@ BEGIN
             v_chemname := ai_rec.chemname;
 
             IF v_ai_pct > 0 THEN
-               v_median_prod := v_median_ai*v_unit_conversion/v_ai_pct;
-               v_mean5sd_prod := v_mean5sd_ai*v_unit_conversion/v_ai_pct;
-               v_mean7sd_prod := v_mean7sd_ai*v_unit_conversion/v_ai_pct;
-               v_mean8sd_prod := v_mean8sd_ai*v_unit_conversion/v_ai_pct;
-               v_mean10sd_prod := v_mean10sd_ai*v_unit_conversion/v_ai_pct;
-               v_mean12sd_prod := v_mean12sd_ai*v_unit_conversion/v_ai_pct;
-               v_fixed1_prod := v_fixed1_ai*v_unit_conversion/v_ai_pct;
-               v_fixed2_prod := v_fixed2_ai*v_unit_conversion/v_ai_pct;
-               v_fixed3_prod := v_fixed3_ai*v_unit_conversion/v_ai_pct;
+               v_median_prod := v_median_ai/v_ai_pct;
+               v_mean5sd_prod := v_mean5sd_ai/v_ai_pct;
+               v_mean7sd_prod := v_mean7sd_ai/v_ai_pct;
+               v_mean8sd_prod := v_mean8sd_ai/v_ai_pct;
+               v_mean10sd_prod := v_mean10sd_ai/v_ai_pct;
+               v_mean12sd_prod := v_mean12sd_ai/v_ai_pct;
+               v_fixed1_prod := v_fixed1_ai/v_ai_pct;
+               v_fixed2_prod := v_fixed2_ai/v_ai_pct;
+               v_fixed3_prod := v_fixed3_ai/v_ai_pct;
                v_mean_limit_prod_str := v_mean_limit_ai_str;
             ELSE
                v_median_prod := NULL;
@@ -582,9 +518,9 @@ BEGIN
       --DBMS_OUTPUT.PUT_LINE('v_fixed2_prod = '||TO_CHAR(v_fixed2_prod, 'FM9,999,999,999.99'));
 
       IF v_outlier_stats_exist THEN
-         INSERT INTO outlier_all_stats VALUES
+         INSERT INTO outlier_all_stats_nonag VALUES
             (oas_rec.regno_short, oas_rec.ago_ind, oas_rec.site_general, v_site_type, 
-             oas_rec.unit_treated, v_chem_code, v_chemname, v_ai_group, v_ai_pct*100, v_ai_rate_type,
+             oas_rec.unit_treated, v_chem_code, v_chemname, v_ai_group, v_ai_pct*100, v_lbs_ai_app_type,
              v_median_prod, v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, 
              v_mean10sd_prod, v_mean12sd_prod,
              v_fixed1_prod, v_fixed2_prod, v_fixed3_prod, 
@@ -592,7 +528,7 @@ BEGIN
              v_median_ai, v_mean5sd_ai, v_mean7sd_ai, v_mean8sd_ai, 
              v_mean10sd_ai, v_mean12sd_ai,
              v_fixed1_ai, v_fixed2_ai, v_fixed3_ai, 
-             v_outlier_limit_ai, v_max_rate, v_unit_conversion, v_mean_limit_prod_str);
+             v_outlier_limit_ai, v_max_rate, v_mean_limit_prod_str);
 
          v_index := v_index + 1;
          IF v_index > 100 THEN
@@ -618,7 +554,7 @@ show errors
  */
 /*
 SELECT   *
-FROM     outlier_all_stats 
+FROM     outlier_all_stats_nonag 
 WHERE    regno_short = '352-00729' AND
          ago_ind = 'A' AND
          unit_treated = 'A' AND
@@ -630,7 +566,7 @@ WHERE    regno_short = '352-00729' AND
             END;
 
 SELECT   *
-FROM     outlier_all_stats 
+FROM     outlier_all_stats_nonag 
 WHERE    prodno = 63665 AND
          record_id = 'B' AND
          unit_treated_report = 'S' AND
@@ -641,4 +577,5 @@ WHERE    prodno = 63665 AND
                ELSE 'ALL'
             END;
 */
+
 

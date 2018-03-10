@@ -8,6 +8,9 @@ SET verify OFF
 SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
+
+
+
 /*
 DROP TABLE Outliers_test_results;
 CREATE TABLE Outliers_test_results
@@ -294,4 +297,11 @@ show errors
 
 
 
+SELECT   ago_ind, unit_treated, regno_short, site_general, 
+         count(*) num_recs, count(fixed2) num_fixed2,
+         count(mean5sd) num_mean5, count(mean8sd) num_mean8,
+         count(mean10sd) num_mean10, count(mean12sd) num_mean12
+FROM     Outliers_test_results
+GROUP BY ago_ind, unit_treated, regno_short, site_general
+ORDER BY ago_ind, unit_treated, regno_short, site_general;
 
