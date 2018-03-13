@@ -79,17 +79,31 @@ CREATE INDEX outlier_all_stats1_ndx ON outlier_all_stats
 
 
 
+DROP INDEX fixout_lbsapp_ais1_ndx;
+CREATE INDEX fixout_lbsapp_ais1_ndx ON fixed_outlier_lbs_app_ais
+	(site_type, chem_code)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
 DROP INDEX fixout_lbsapp_ais_ndx;
 CREATE INDEX fixout_lbsapp_ais_ndx ON fixed_outlier_lbs_app_ais
 	(lbs_ai_app_type, chem_code)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
+
 DROP INDEX fixout_lbsapp_ndx;
 CREATE INDEX fixout_lbsapp_ndx ON fixed_outlier_lbs_app
 	(lbs_ai_app_type)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
+DROP INDEX fixout_lbsapp1_ndx;
+CREATE INDEX fixout_lbsapp1_ndx ON fixed_outlier_lbs_app
+	(lbs_ai_app_type, site_type)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
 
 DROP INDEX fixout_rates_ais_ndx;
 CREATE INDEX fixout_rates_ais_ndx ON fixed_outlier_rates_ais

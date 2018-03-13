@@ -9,11 +9,8 @@ SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 
+
 /*
-   This query takes about one hour to run.
-*/
-
-
 DROP TABLE regno_table;
 CREATE TABLE regno_table
    (regno_short	VARCHAR2(20))
@@ -72,6 +69,7 @@ INSERT INTO outlier_all_stats_nonag_temp (regno_short, site_general)
 
 COMMIT;
 */
+
 /*
 
 CREATE TABLE prodno_regno_short
@@ -101,25 +99,52 @@ CREATE INDEX prodno_regno_short2_ndx ON prodno_regno_short
 */
 
 /*
-   Max product rates every found in PUR ag or nonag (or RAW_PUR after 1999):
-   A: 5,100,000
-   S:   358,000 (next highest was 20,000, then 6,000)
-   C:     5,500
-   K:   161,000 (next highest was 16,000)
-   P:     1,200
-   T:    38,000
-   U: 2,100,000 (in raw 2017, next highest was 440,000)
+   SELECT   year, site_code, site_name, site_general, 
+            CASE WHEN site_general = 'STRUCTURAL PEST CONTROL' THEN 'STRUCTURAL'
+                 WHEN site_general = 'LANDSCAPE MAINTENANCE' THEN 'LANDSCAPE'
+                 WHEN site_general = 'RIGHTS OF WAY' THEN 'RIGHTS_OF_WAY'
+               ELSE 'OTHER'
+            END site_type,
+            MAX(lbs_prd_used) max_lbs_prod
+   FROM     pur left JOIN pur_site_groups using (site_code)
+   WHERE    record_id IN ('2', 'C') AND
+            unit_treated IS NULL AND
+            year > 1994
+   GROUP BY year, site_code, site_name, site_general, 
+            CASE WHEN site_general = 'STRUCTURAL PEST CONTROL' THEN 'STRUCTURAL'
+                 WHEN site_general = 'LANDSCAPE MAINTENANCE' THEN 'LANDSCAPE'
+                 WHEN site_general = 'RIGHTS OF WAY' THEN 'RIGHTS_OF_WAY'
+               ELSE 'OTHER'
+            END;
+
+   SELECT   year, site_code, site_name, site_general, site_type,
+            MAX(lbs_prd_used) max_lbs_prod
+   FROM     ai_raw_rates
+   WHERE    record_id IN ('2', 'C') AND
+            unit_treated IS NULL
+   GROUP BY year, site_code, site_name, site_general, site_type;
+
+
+   Max product pounds ever found in PUR (or RAW_PUR after 1999) with no units treated:
+   public health:       6,600,000 (one record in 2000, next highest 4,400,000 in 2010)
+   structural:          4,000,000 (3 records in 2007, next 2,600,000, then 2,000,000, then 858,000)
+   rights of way:       1,700,000 (one record in 2011, next 1,400,000 in 2009, next 426,000)
+   fumigation (90, 91):   900,000 (one record in 2006, 4 records ~ 700,000)
+   landscape:             720,000 (one record in 2004, next 540,000)
+   Others:                320,000
 
    Set maximum rates:
-   A: 50,000,000
-   S:    500,000 
-   C:     50,000
-   K:  1,000,000 
-   P:     10,000
-   T:    500,000
-   U:  5,000,000 
+   public health:       5,000,000
+   structural:          4,000,000
+   rights of way:       1,000,000
+   fumigation (90, 91): 1,000,000
+   landscape;:            500,000
+   Others:                300,000
 
 */
+
+
+
 DROP TABLE outlier_all_stats_nonag;
 CREATE TABLE outlier_all_stats_nonag
    (regno_short			VARCHAR2(20),
@@ -151,6 +176,7 @@ CREATE TABLE outlier_all_stats_nonag
     fixed2_ai           NUMBER,
     fixed3_ai           NUMBER,
     outlier_limit_ai    NUMBER,
+    max_rate            NUMBER,
     mean_limit_prod_str VARCHAR2(100))
 NOLOGGING
 PCTUSED 95
@@ -161,8 +187,7 @@ TABLESPACE pur_report;
 
 DECLARE
    v_site_type             VARCHAR2(50);
-   v_ai_adjuvant           VARCHAR2(1);
-   v_lbs_ai_app_type          VARCHAR2(50);
+   v_lbs_ai_app_type       VARCHAR2(50);
    v_ai_group              INTEGER;
 
    v_fixed1_ai             NUMBER;
@@ -187,6 +212,7 @@ DECLARE
    v_mean10sd_prod         NUMBER;
    v_mean12sd_prod         NUMBER;
 
+   v_max_rate              NUMBER;
    v_mean_limit_ai_str     VARCHAR2(100);
    v_mean_limit_prod_str   VARCHAR2(100);
    v_mean_limit_ai         NUMBER;
@@ -209,12 +235,11 @@ DECLARE
       ORDER BY regno_short, site_general
       ;
 
+--   WHERE    regno_short = '100-1061'
 --   WHERE    regno_short = '100-1093'
 --   WHERE    regno_short = '100-1000' AND site_general = 'ANIMALS'
 /*
    WHERE    regno_short = '67986-1' AND
-   ago_ind = 'A' AND
-   unit_treated = 'A' AND
    site_general = 'CITRUS'
 */
    CURSOR ai_cur(p_regno IN VARCHAR2) IS
@@ -229,10 +254,21 @@ BEGIN
    FOR oas_rec IN oas_cur LOOP
       --DBMS_OUTPUT.PUT_LINE('********************************');
       --DBMS_OUTPUT.PUT_LINE('v_index = '||v_index);
-      ----DBMS_OUTPUT.PUT_LINE('oas_rec.regno_short = '||oas_rec.regno_short);
-      ----DBMS_OUTPUT.PUT_LINE('oas_rec.unit_treated = '||oas_rec.unit_treated);
-      ----DBMS_OUTPUT.PUT_LINE('oas_rec.ago_ind = '||oas_rec.ago_ind);
-      ----DBMS_OUTPUT.PUT_LINE('oas_rec.site_general = '||oas_rec.site_general);
+      --DBMS_OUTPUT.PUT_LINE('oas_rec.regno_short = '||oas_rec.regno_short);
+      --DBMS_OUTPUT.PUT_LINE('oas_rec.site_general = '||oas_rec.site_general);
+      v_chem_code := NULL;
+      v_chemname := NULL;
+
+      v_median_prod := NULL;
+      v_mean5sd_prod := NULL;
+      v_mean7sd_prod := NULL;
+      v_mean8sd_prod := NULL;
+      v_mean10sd_prod := NULL;
+      v_mean12sd_prod := NULL;
+      v_fixed1_prod := NULL;
+      v_fixed2_prod := NULL;
+      v_fixed3_prod := NULL;
+      v_mean_limit_prod_str := NULL;
 
       IF oas_rec.site_general = 'STRUCTURAL PEST CONTROL' THEN 
          v_site_type := 'STRUCTURAL';
@@ -254,16 +290,6 @@ BEGIN
          /* Get fixed rate outliers.
           */
          BEGIN
-            SELECT   adjuvant
-            INTO     v_ai_adjuvant
-            FROM     chem_adjuvant
-            WHERE    chem_code = ai_rec.chem_code;
-         EXCEPTION
-            WHEN OTHERS THEN
-               v_ai_adjuvant := 'N';
-         END;
-
-         BEGIN
             SELECT   lbs_ai_app_type
             INTO     v_lbs_ai_app_type
             FROM     fixed_outlier_lbs_app_ais
@@ -277,7 +303,7 @@ BEGIN
          --DBMS_OUTPUT.PUT_LINE('v_lbs_ai_app_type from fixed_outlier_lbs_app_AIS = '||v_lbs_ai_app_type);
 
          BEGIN
-            SELECT   rate1, rate2, rate3
+            SELECT   lbs_ai_app1, lbs_ai_app2, lbs_ai_app3
             INTO     v_fixed1_ai, v_fixed2_ai, v_fixed3_ai
             FROM     fixed_outlier_lbs_app
             WHERE    lbs_ai_app_type = v_lbs_ai_app_type AND
@@ -302,10 +328,10 @@ BEGIN
          --DBMS_OUTPUT.PUT_LINE('v_num_stat_recs in AI_OUTLIER_STATS = '||v_num_stat_recs);
 
          IF v_num_stat_recs = 0 AND v_fixed2_ai IS NULL THEN
-            --DBMS_OUTPUT.PUT_LINE('No stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_gen_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('No stats exist for chem_code = '||ai_rec.chem_code ||' and site_type = '||v_site_type);
             CONTINUE;
          ELSIF v_num_stat_recs = 0 AND v_fixed2_ai > 0 THEN
-            --DBMS_OUTPUT.PUT_LINE('Only fixed stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_gen_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('Only fixed stats exist for chem_code = '||ai_rec.chem_code ||' and site_type = '||v_site_type);
             v_outlier_stats_exist := TRUE;
 
             v_median_ai := NULL;
@@ -317,7 +343,7 @@ BEGIN
 
             v_outlier_limit_ai := v_fixed2_ai;
          ELSE
-            --DBMS_OUTPUT.PUT_LINE('Both fixed and outlier_stats exist for for ago_ind = '||oas_rec.ago_ind ||' and unit = '||v_gen_unit_treated);
+            --DBMS_OUTPUT.PUT_LINE('Both fixed stats and outlier stats exist for chem_code = '||ai_rec.chem_code ||' and site_type = '||v_site_type);
             v_outlier_stats_exist := TRUE;
 
             BEGIN
@@ -334,9 +360,9 @@ BEGIN
             --DBMS_OUTPUT.PUT_LINE('v_ai_group = '||v_ai_group);
 
             IF v_ai_group IS NULL THEN
-               /* If no statistics found for this AI, ago_ind, unit_treated, product, and site,
-                  then use maximum outlier limits for this AI, ago_ind, and unit_treated.
-                  If no statistics found for this AI, ago_ind, and unit_treated, just use fixed limits.
+               /* If no statistics found for this AI, product, and site,
+                  then use maximum outlier limits for this AI.
+                  If no statistics found for this AI, just use fixed limits.
                 */
                BEGIN
                   SELECT	MAX(median_rate), MAX(mean5sd), MAX(mean7sd), MAX(mean8sd), MAX(mean10sd), MAX(mean12sd)
@@ -381,16 +407,16 @@ BEGIN
             v_mean10sd_ai := power(10, LEAST(v_mean10sd_ai, 15));
             v_mean12sd_ai := power(10, LEAST(v_mean12sd_ai, 15));
 
-            --DBMS_OUTPUT.PUT_LINE('v_mean5sd_ai = '||TO_CHAR(v_mean5sd_ai, 'FM9,999.9999999999'));
-            --DBMS_OUTPUT.PUT_LINE('v_mean8sd_ai = '||TO_CHAR(v_mean8sd_ai, 'FM9,999.9999999999'));
+            --DBMS_OUTPUT.PUT_LINE('v_mean5sd_ai = '||TO_CHAR(v_mean5sd_ai, 'FM9,999,999,999.99'));
+            --DBMS_OUTPUT.PUT_LINE('-- or v_mean5sd_ai = '||TO_CHAR(v_mean5sd_ai, 'FM9,999.9999999999'));
+            --DBMS_OUTPUT.PUT_LINE('v_mean8sd_ai = '||TO_CHAR(v_mean8sd_ai, 'FM9,999,999,999.99'));
+            --DBMS_OUTPUT.PUT_LINE('-- or v_mean8sd_ai = '||TO_CHAR(v_mean8sd_ai, 'FM9,999.9999999999'));
 
             BEGIN
                SELECT   mean_limit
                INTO     v_mean_limit_ai_str
                FROM     outlier_final_stats_nonag
-               WHERE    ago_ind = oas_rec.ago_ind AND
-                        unit_treated = v_gen_unit_treated AND
-                        lbs_ai_app_type = v_lbs_ai_app_type AND
+               WHERE    lbs_ai_app_type = v_lbs_ai_app_type AND
                         site_type = v_site_type;
             EXCEPTION
                WHEN OTHERS THEN
@@ -424,13 +450,10 @@ BEGIN
 
          /* Get the outlier limit for the product and
             choose the smallest outlier limit among all AIs
-            for this product. This procedure may be called
-            with unit_treated = S, K, or T which need to
-            be converted to A, C, or P which are the units
-            in the outlier tables.
+            for this product. 
           */
          v_ai_pct := ai_rec.prodchem_pct/100;
-         ----DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
+         --DBMS_OUTPUT.PUT_LINE('v_ai_pct = '||v_ai_pct);
          IF v_ai_pct > 0 THEN
             v_outlier_limit_prod := v_outlier_limit_ai/v_ai_pct;
          ELSE
@@ -481,23 +504,23 @@ BEGIN
 
       /*
          Set maximum rates:
-         A: 50,000,000
-         S:    500,000 
-         C:     50,000
-         K:  1,000,000 
-         P:     10,000
-         T:    500,000
-         U:  5,000,000 
+         public health (50):  5,000,000
+         structural:          4,000,000
+         rights of way:       1,000,000
+         fumigation (90, 91): 1,000,000
+         landscape:             500,000
+         Others:                300,000
       */
+
       v_max_rate := 
-         CASE oas_rec.unit_treated
-            WHEN 'A' THEN 50000000
-            WHEN 'S' THEN 500000
-            WHEN 'C' THEN 50000 
-            WHEN 'K' THEN 1000000
-            WHEN 'P' THEN 10000
-            WHEN 'T' THEN 500000
-            WHEN 'U' THEN 5000000
+         CASE oas_rec.site_general 
+            WHEN 'STRUCTURAL PEST CONTROL' THEN 4000000
+            WHEN 'RIGHTS OF WAY'           THEN 1000000
+            WHEN 'LANDSCAPE MAINTENANCE'   THEN  500000
+            WHEN 'PUBLIC HEALTH'           THEN 5000000
+            WHEN 'FUMIGATION'              THEN 1000000
+            WHEN 'COMMODITY FUMIGATION'    THEN 1000000
+            ELSE                                 300000
          END;
       --DBMS_OUTPUT.PUT_LINE('v_max_rate = '||TO_CHAR(v_max_rate, 'FM9,999,999,999.99'));
 
@@ -519,8 +542,8 @@ BEGIN
 
       IF v_outlier_stats_exist THEN
          INSERT INTO outlier_all_stats_nonag VALUES
-            (oas_rec.regno_short, oas_rec.ago_ind, oas_rec.site_general, v_site_type, 
-             oas_rec.unit_treated, v_chem_code, v_chemname, v_ai_group, v_ai_pct*100, v_lbs_ai_app_type,
+            (oas_rec.regno_short, oas_rec.site_general, v_site_type, 
+             v_chem_code, v_chemname, v_ai_group, v_ai_pct*100, v_lbs_ai_app_type,
              v_median_prod, v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, 
              v_mean10sd_prod, v_mean12sd_prod,
              v_fixed1_prod, v_fixed2_prod, v_fixed3_prod, 
