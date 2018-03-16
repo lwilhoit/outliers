@@ -28,6 +28,7 @@
             <F N="sql_py/cvo1.sql"/>
             <F N="sql_py/cvo2.sql"/>
             <F N="../sql_py/files.sql"/>
+            <F N="sql_py/onp.sql"/>
             <F N="sql_py/otr.sql"/>
             <F N="sql_py/otr2.sql"/>
             <F N="sql_py/Outlier_new_package.sql"/>

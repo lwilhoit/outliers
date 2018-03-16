@@ -17,11 +17,9 @@ SET serveroutput on size 1000000 format word_wrapped
 CREATE OR REPLACE PACKAGE Outlier_new_package AS
 
    FUNCTION Wrong_unit
-      (p_stat_year IN INTEGER, p_ago_ind IN VARCHAR2,
-		 p_chem_code IN INTEGER, p_ai_group IN NUMBER,
-		 p_ai_rate_type IN VARCHAR2, p_regno_short IN VARCHAR2,
-       p_site_code IN NUMBER, p_site_general IN VARCHAR2, p_lbs_ai IN NUMBER,
-		 p_fixed2 IN NUMBER, p_mean5sd IN NUMBER, p_mean7sd IN NUMBER, p_mean10sd IN NUMBER,
+      (p_ago_ind IN VARCHAR2, p_regno_short IN VARCHAR2,
+       p_site_general IN VARCHAR2, p_site_code IN NUMBER, 
+       p_lbs_prd_used IN NUMBER,
 		 p_acre_planted IN NUMBER, p_unit_planted IN VARCHAR2,
        p_acre_treated IN NUMBER, p_unit_treated IN OUT VARCHAR2,
 		 p_replace_type OUT VARCHAR2)
@@ -29,16 +27,21 @@ CREATE OR REPLACE PACKAGE Outlier_new_package AS
 
    FUNCTION Wrong_acres
       (p_ago_ind IN VARCHAR2, p_site_code IN NUMBER,
-       p_lbs_ai IN NUMBER, p_ai_rate IN NUMBER, p_med_rate IN NUMBER,
+       p_lbs_prd_used IN NUMBER, p_med_rate IN NUMBER,
        p_acre_planted IN VARCHAR2, p_unit_planted IN VARCHAR2,
        p_acre_treated IN OUT VARCHAR2, p_unit_treated IN VARCHAR2,
 		 p_replace_type OUT VARCHAR2)
    RETURN BOOLEAN;
 
    PROCEDURE Wrong_lbs
-      (p_ai_rate IN NUMBER, p_med_rate IN NUMBER, p_prodchem_pct IN NUMBER, p_amount_treated IN NUMBER,
+      (p_prod_rate IN NUMBER, p_med_rate IN NUMBER, p_prodchem_pct IN NUMBER, p_amount_treated IN NUMBER,
 		 p_lbs_prd_used IN OUT NUMBER, p_amt_prd_used IN OUT NUMBER,
 		 p_replace_type OUT VARCHAR2);
+
+   PROCEDURE Wrong_lbs_app
+      (p_prod_rate IN NUMBER, p_med_rate IN NUMBER, p_prodchem_pct IN NUMBER, p_applic_cnt IN NUMBER,
+       p_lbs_prd_used IN OUT NUMBER, p_amt_prd_used IN OUT NUMBER,
+       p_replace_type OUT VARCHAR2);
 
 END Outlier_new_package;
 /
@@ -191,7 +194,7 @@ CREATE OR REPLACE PACKAGE BODY Outlier_new_package AS
     */
    FUNCTION Wrong_acres
       (p_ago_ind IN VARCHAR2, p_site_code IN NUMBER,
-       p_lbs_prd_used IN NUMBER, p_lbs_prd_used IN NUMBER, p_med_rate IN NUMBER,
+       p_lbs_prd_used IN NUMBER, p_med_rate IN NUMBER,
        p_acre_planted IN VARCHAR2, p_unit_planted IN VARCHAR2,
        p_acre_treated IN OUT VARCHAR2, p_unit_treated IN VARCHAR2,
 		 p_replace_type OUT VARCHAR2)
@@ -229,10 +232,10 @@ CREATE OR REPLACE PACKAGE BODY Outlier_new_package AS
          END IF;
 
 			IF p_unit_treated = 'A' THEN
-            v_acres_treated := p_acres_treated;
+            v_acres_treated := p_acre_treated;
             v_median_rate := p_med_rate;
          ELSIF p_unit_treated = 'S' THEN
-            v_acres_treated := p_acres_treated/43560;
+            v_acres_treated := p_acre_treated/43560;
             v_median_rate := p_med_rate*43560;
          END IF;
 
@@ -249,7 +252,7 @@ CREATE OR REPLACE PACKAGE BODY Outlier_new_package AS
 			IF v_estimated_acres_treated <= v_acres_planted AND 
             v_acres_treated > 0 
          THEN
-            v_prod_rate := p_lbs_prd_used/v_acres_treated
+            v_prod_rate := p_lbs_prd_used/v_acres_treated;
 
 				/* Sometimes the median rate is actually more than the reported rate;
 					in this case using the median as an estimate of the correct rate
@@ -283,7 +286,7 @@ CREATE OR REPLACE PACKAGE BODY Outlier_new_package AS
          RETURN FALSE;
    END Wrong_acres;
 
-	/* If the unit_treated and acre_treated seem ok, then assume lbs_prd_used and
+   /* If the unit_treated and acre_treated seem ok, then assume lbs_prd_used and
 		amt_prd_used are incorrect and make estimates for these.
 	 */
    PROCEDURE Wrong_lbs
@@ -299,8 +302,6 @@ CREATE OR REPLACE PACKAGE BODY Outlier_new_package AS
 		/* Sometimes the median rate is actually more than the reported rate;
 			in this case using the median as an estimate of the correct rate
 			is inappropriate since doing so will only increase the rate.
-
-			The median and AI rates use gen_unit_treated.
 		 */
 		IF p_med_rate < p_prod_rate THEN
 			p_replace_type := 'ESTIMATE';
@@ -325,6 +326,48 @@ CREATE OR REPLACE PACKAGE BODY Outlier_new_package AS
       WHEN OTHERS THEN
 			p_replace_type := NULL;
    END Wrong_lbs;
+
+   /* For rate as pounds product per application, lbs_prd_used and amt_prd_used are incorrect and 
+      make estimates for these.
+    */
+   PROCEDURE Wrong_lbs_app
+      (p_prod_rate IN NUMBER, p_med_rate IN NUMBER, p_prodchem_pct IN NUMBER, p_applic_cnt IN NUMBER,
+       p_lbs_prd_used IN OUT NUMBER, p_amt_prd_used IN OUT NUMBER,
+       p_replace_type OUT VARCHAR2)
+   IS
+      v_old_lbs_prd_used   NUMBER;
+
+   BEGIN
+      v_old_lbs_prd_used := p_lbs_prd_used;
+
+      /* Sometimes the median rate is actually more than the reported rate;
+         in this case using the median as an estimate of the correct rate
+         is inappropriate since doing so will only increase the rate.
+       */
+      IF p_med_rate < p_prod_rate THEN
+         p_replace_type := 'ESTIMATE';
+
+         p_lbs_prd_used := p_med_rate * p_applic_cnt * 100/p_prodchem_pct;
+         p_amt_prd_used := p_amt_prd_used * p_lbs_prd_used / v_old_lbs_prd_used;
+
+         IF p_lbs_prd_used < 0.0001 THEN
+            p_lbs_prd_used := 0.0001;
+         END IF;
+
+         IF p_amt_prd_used < 0.0001 THEN
+            p_amt_prd_used := 0.0001;
+         END IF;
+
+         --DBMS_OUTPUT.PUT_LINE('; lbsprd '||p_lbs_prd_used||'; applic_cnt '||p_applic_cnt||'; med '||p_med_rate);
+      ELSE
+         p_replace_type := 'SAME';
+      END IF;
+
+   EXCEPTION
+      WHEN OTHERS THEN
+         p_replace_type := NULL;
+   END Wrong_lbs_app;
+
 
 END Outlier_new_package;
 /

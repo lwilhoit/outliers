@@ -16,9 +16,12 @@ CREATE OR REPLACE PROCEDURE Outliers_test
     p_prodno IN NUMBER,
     p_site_code IN NUMBER,
 
-    p_lbs_prd_used IN NUMBER,
-    p_acre_treated IN NUMBER,
-    p_unit_treated IN VARCHAR2,
+    p_lbs_prd_used IN OUT NUMBER,
+    p_amt_prd_used IN OUT NUMBER,
+    p_acre_treated IN OUT NUMBER,
+    p_unit_treated IN OUT VARCHAR2,
+    p_acre_planted IN NUMBER,
+    p_unit_planted IN VARCHAR2,
     p_applic_cnt IN NUMBER,
 
     p_fixed1_rate_outlier OUT VARCHAR2,
@@ -449,36 +452,34 @@ BEGIN
             */
 
             IF Outlier_new_package.Wrong_unit
-                  (v_stat_year, v_ago_ind,
-                   p_chem_code, v_ai_group,
-                   v_ai_rate_type, v_regno_short,
-                   p_site_code, v_site_general, v_lbs_ai,
-                   v_fixed2, v_mean5sd, v_mean7sd, v_mean10sd,
+                  (v_ago_ind, v_regno_short,
+                   v_site_general, p_site_code, p_lbs_prd_used,
                    p_acre_planted, p_unit_planted,
                    p_acre_treated, p_unit_treated,
                    p_replace_type)
             THEN
                p_estimated_field := 'UNIT_TREATED';
-               p_comments := p_comments||'; the value for unit_treated was estimated.';
+               p_comments := p_comments||'; the value for unit_treated was estimated as '||p_unit_treated;
             ELSIF Outlier_new_package.Wrong_acres
-               (v_ago_ind, p_site_code, v_lbs_ai, v_ai_rate, v_med_rate,
+               (v_ago_ind, p_site_code, p_lbs_prd_used, v_median_prod,
                 p_acre_planted, p_unit_planted,
                 p_acre_treated, p_unit_treated,
                 p_replace_type)
             THEN
                IF p_replace_type = 'ESTIMATE' THEN
                   p_estimated_field := 'ACRE_TREATED';
-                  p_comments := p_comments||'; the value for acre_treated was estimated.';
+                  p_comments := p_comments||'; the value for acre_treated was estimated as '||p_acre_treated;
                END IF;
             ELSE
                -- DBMS_OUTPUT.PUT_LINE('3 (before wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
                Outlier_new_package.Wrong_lbs
-               (v_ai_rate, v_med_rate, p_prodchem_pct, v_amount_treated, p_lbs_prd_used, p_amt_prd_used,
+               (v_prod_rate, v_median_prod, v_prodchem_pct, p_acre_treated, p_lbs_prd_used, p_amt_prd_used,
                 p_replace_type);
 
                IF p_replace_type = 'ESTIMATE' THEN
                   p_estimated_field := 'LBS_PRD_USED';
-                  p_comments := p_comments||'; the values for lbs_prd_used and amt_prd_used were estimated.';
+                  p_comments := p_comments||'; the values for lbs_prd_used and amt_prd_used were estimated as '||
+                                          p_lbs_prd_used ||' and '||p_amt_prd_used;
                END IF;
                -- DBMS_OUTPUT.PUT_LINE('3 (after wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
             END IF;
@@ -488,8 +489,6 @@ BEGIN
             p_error_type := 'POSSIBLE';
             p_replace_type := 'SAME';
          END IF;
-
-
       END IF;
    END IF;
 
@@ -681,6 +680,18 @@ BEGIN
             p_error_code := 75;
             p_error_type := 'POSSIBLE';
             p_replace_type := NULL;
+
+            Outlier_new_package.Wrong_lbs_app
+               (v_prod_rate, v_median_prod, v_prodchem_pct, p_applic_cnt, p_lbs_prd_used, p_amt_prd_used,
+                p_replace_type);
+         
+            IF p_replace_type = 'ESTIMATE' THEN
+               p_estimated_field := 'LBS_PRD_USED';
+               p_comments := p_comments||'; the values for lbs_prd_used and amt_prd_used were estimated as '||
+                                       p_lbs_prd_used ||' and '||p_amt_prd_used;
+            END IF;
+            -- DBMS_OUTPUT.PUT_LINE('3 (after wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
+            
          ELSE
             p_estimated_field := NULL;
             p_error_code := 76;
