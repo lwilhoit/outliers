@@ -434,6 +434,54 @@ BEGIN
             p_error_code := 75;
             p_error_type := 'POSSIBLE';
             p_replace_type := NULL;
+
+            /* More English-like statement of the following code:
+            IF rate of use is unusally high THEN
+               IF replacing unit_treated with 'A' makes rate reasonable THEN
+                  estimate unit_treated with 'A';
+               ELSIF replacing acre_treated using median rate
+                     gives acre_treated < acre_planted THEN
+                  estimate acre_treated;
+               ELSE
+                  estimate lbs_prd_used using median rate and acre_treated;
+               END IF;
+            END IF;
+            */
+
+            IF Outlier_new_package.Wrong_unit
+                  (v_stat_year, v_ago_ind,
+                   p_chem_code, v_ai_group,
+                   v_ai_rate_type, v_regno_short,
+                   p_site_code, v_site_general, v_lbs_ai,
+                   v_fixed2, v_mean5sd, v_mean7sd, v_mean10sd,
+                   p_acre_planted, p_unit_planted,
+                   p_acre_treated, p_unit_treated,
+                   p_replace_type)
+            THEN
+               p_estimated_field := 'UNIT_TREATED';
+               p_comments := p_comments||'; the value for unit_treated was estimated.';
+            ELSIF Outlier_new_package.Wrong_acres
+               (v_ago_ind, p_site_code, v_lbs_ai, v_ai_rate, v_med_rate,
+                p_acre_planted, p_unit_planted,
+                p_acre_treated, p_unit_treated,
+                p_replace_type)
+            THEN
+               IF p_replace_type = 'ESTIMATE' THEN
+                  p_estimated_field := 'ACRE_TREATED';
+                  p_comments := p_comments||'; the value for acre_treated was estimated.';
+               END IF;
+            ELSE
+               -- DBMS_OUTPUT.PUT_LINE('3 (before wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
+               Outlier_new_package.Wrong_lbs
+               (v_ai_rate, v_med_rate, p_prodchem_pct, v_amount_treated, p_lbs_prd_used, p_amt_prd_used,
+                p_replace_type);
+
+               IF p_replace_type = 'ESTIMATE' THEN
+                  p_estimated_field := 'LBS_PRD_USED';
+                  p_comments := p_comments||'; the values for lbs_prd_used and amt_prd_used were estimated.';
+               END IF;
+               -- DBMS_OUTPUT.PUT_LINE('3 (after wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
+            END IF;
          ELSE
             p_estimated_field := NULL;
             p_error_code := 76;

@@ -33,6 +33,8 @@ CREATE TABLE Outliers_test_results
     lbs_ai              NUMBER,
     ai_rate             NUMBER,
     prod_rate           NUMBER,
+    lbs_ai_per_app      NUMBER,
+    lbs_prod_per_app    NUMBER,
     fixed1              VARCHAR2(1),
     fixed2              VARCHAR2(1),
     fixed3              VARCHAR2(1),
@@ -46,7 +48,16 @@ CREATE TABLE Outliers_test_results
     estimated_field     VARCHAR2(100),
     error_code          INTEGER,
     error_type          VARCHAR2(100),
-    replace_type        VARCHAR2(100))
+    replace_type        VARCHAR2(100),
+    median_prod         NUMBER,
+    fixed1_prod         NUMBER,
+    fixed2_prod         NUMBER,
+    fixed3_prod         NUMBER,
+    mean5sd_prod   		NUMBER,
+    mean7sd_prod   		NUMBER,
+    mean8sd_prod   		NUMBER,
+    mean10sd_prod   		NUMBER,
+    mean12sd_prod   		NUMBER)
 NOLOGGING
 PCTUSED 95
 PCTFREE 3
@@ -69,13 +80,23 @@ DECLARE
    v_error_type      VARCHAR2(100);
    v_replace_type    VARCHAR2(100);
 
+   v_median_prod     NUMBER;          
+   v_fixed1_prod     NUMBER := NULL;
+   v_fixed2_prod     NUMBER := NULL;
+   v_fixed3_prod     NUMBER := NULL;
+   v_mean5sd_prod    NUMBER := NULL;
+   v_mean7sd_prod    NUMBER := NULL;
+   v_mean8sd_prod    NUMBER := NULL;
+   v_mean10sd_prod   NUMBER := NULL;
+   v_mean12sd_prod   NUMBER := NULL;
+
    v_index           INTEGER;
 
    CURSOR raw_cur IS
       SELECT   *
       FROM     ai_raw_rates left JOIN chemical using (chem_code)
       WHERE    year = 2016 AND
-               use_no < 10000;
+               use_no < 1000000;
 BEGIN
    v_index := 0;
    FOR raw_rec IN raw_cur LOOP
@@ -83,7 +104,9 @@ BEGIN
                     raw_rec.acre_treated, raw_rec.unit_treated_report, raw_rec.applic_cnt, 
                     v_fixed1, v_fixed2, v_fixed3, 
                     v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
-                    v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
+                    v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
+                    v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
+                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
 
       INSERT INTO Outliers_test_results VALUES
          (raw_rec.use_no, raw_rec.ago_ind, raw_rec.record_id, raw_rec.unit_treated, 
@@ -93,9 +116,12 @@ BEGIN
           raw_rec.prodno, raw_rec.lbs_prd_used, raw_rec.amt_treated, raw_rec.acre_treated, 
           raw_rec.unit_treated_report, raw_rec.applic_cnt, 
           raw_rec.lbs_ai, raw_rec.ai_rate, raw_rec.prod_rate,
+          raw_rec.lbs_ai_per_app, raw_rec.lbs_prod_per_app,
           v_fixed1, v_fixed2, v_fixed3, 
           v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
-          v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
+          v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
+          v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
+          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
 
       v_index := v_index + 1;
       IF v_index > 100 THEN
@@ -156,7 +182,17 @@ CREATE OR REPLACE PROCEDURE Outliers_test
     p_estimated_field OUT VARCHAR2,
     p_error_code OUT INTEGER,
     p_error_type OUT VARCHAR2,
-    p_replace_type OUT VARCHAR2)
+    p_replace_type OUT VARCHAR2,
+
+    p_median_prod OUT NUMBER,
+    p_fixed1_prod OUT NUMBER,
+    p_fixed2_prod OUT NUMBER,
+    p_fixed3_prod OUT NUMBER,
+    p_mean5sd_prod OUT NUMBER,
+    p_mean7sd_prod OUT NUMBER,
+    p_mean8sd_prod OUT NUMBER,
+    p_mean10sd_prod OUT NUMBER,
+    p_mean12sd_prod OUT NUMBER)
 IS
    --v_stat_year             INTEGER := NULL;
 
@@ -179,8 +215,8 @@ IS
    v_outlier_limit         NUMBER;
    v_prod_rate             NUMBER;
    v_ai_rate            NUMBER;           -- AI rate uses gen_unit_treated
-   v_median_prod            NUMBER;          
    v_median_ai            NUMBER;          
+   v_median_prod            NUMBER;          
    v_fixed1_prod               NUMBER := NULL;
    v_fixed2_prod               NUMBER := NULL;
    v_fixed3_prod               NUMBER := NULL;
@@ -354,6 +390,17 @@ BEGIN
          v_mean8sd_prod := COALESCE(GREATEST(v_mean8sd_prod, v_max_label_prod), v_mean8sd_prod, v_max_label_prod);
          v_mean10sd_prod := COALESCE(GREATEST(v_mean10sd_prod, v_max_label_prod), v_mean10sd_prod, v_max_label_prod);
          v_mean12sd_prod := COALESCE(GREATEST(v_mean12sd_prod, v_max_label_prod), v_mean12sd_prod, v_max_label_prod);
+
+         p_median_prod := v_median_prod;
+         p_fixed1_prod := v_fixed1_prod;
+         p_fixed2_prod := v_fixed2_prod;
+         p_fixed3_prod := v_fixed3_prod;
+         p_mean5sd_prod := v_mean5sd_prod;
+         p_mean7sd_prod := v_mean7sd_prod;
+         p_mean8sd_prod := v_mean8sd_prod;
+         p_mean10sd_prod := v_mean10sd_prod;
+         p_mean12sd_prod := v_mean12sd_prod;
+
       END IF;
 
       /* Determine if this rate is an outlier by each criterion.
@@ -588,6 +635,18 @@ BEGIN
             v_chemname := NULL;
       END;
 
+
+      p_median_prod := v_median_prod;
+      p_fixed1_prod := v_fixed1_prod;
+      p_fixed2_prod := v_fixed2_prod;
+      p_fixed3_prod := v_fixed3_prod;
+      p_mean5sd_prod := v_mean5sd_prod;
+      p_mean7sd_prod := v_mean7sd_prod;
+      p_mean8sd_prod := v_mean8sd_prod;
+      p_mean10sd_prod := v_mean10sd_prod;
+      p_mean12sd_prod := v_mean12sd_prod;
+
+
       /* Determine if this rate is an outlier by each criterion.
        */
       IF v_prod_rate > 0 AND
@@ -658,9 +717,9 @@ BEGIN
             p_comments :=
                'Reported rate of use (per application) = '||v_ai_rate_ch||' pounds of '||lower(v_chemname)||' per number of applications';
             p_comments := p_comments||
-               ' (or '||v_prod_rate_ch||' pounds of product per number of applications); ';
+               ' (or '||v_prod_rate_ch||' pounds of product per number of applications) ';
          ELSE
-            p_comments := 'Reported rate of use (per application) is unknown; ';
+            p_comments := 'Reported rate of use (per application) is unknown ';
          END IF;
 
          p_fixed1_rate_outlier := NULL;
@@ -736,6 +795,7 @@ EXCEPTION
 END Outliers_test;
 /
 show errors
+
 
 
 SELECT   ago_ind, product.prodno, chem_code, chemname, ai_group, ai_rate_type, prodchem_pct, site_general, oas.site_type, psg.site_code, oas.unit_treated,

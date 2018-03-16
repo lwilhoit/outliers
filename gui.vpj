@@ -30,6 +30,7 @@
             <F N="../sql_py/files.sql"/>
             <F N="sql_py/otr.sql"/>
             <F N="sql_py/otr2.sql"/>
+            <F N="sql_py/Outlier_new_package.sql"/>
             <F N="sql_py/outlier_procedure.sql"/>
             <F N="sql_py/outlier_procedure_old.sql"/>
             <F N="sql_py/print_line.sql"/>

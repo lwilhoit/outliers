@@ -74,6 +74,13 @@ CREATE INDEX outlier_all_stats1_ndx ON outlier_all_stats
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
+DROP INDEX outlier_all_stats_nonag_ndx;
+CREATE INDEX outlier_all_stats_nonag_ndx ON outlier_all_stats_nonag
+	(regno_short, site_general)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
+
 
 
 
