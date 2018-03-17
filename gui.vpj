@@ -23,6 +23,7 @@
             GUID="{545C94BC-721F-4981-565B-6BC83A1F1C8F}">
             <F N="cfo.sql"/>
             <F N="sql_py/check_value_outliers.sql"/>
+            <F N="sql_py/craig.sql"/>
             <F N="sql_py/create_outlier_all_stats_nonag.sql"/>
             <F N="cvo.sql"/>
             <F N="sql_py/cvo1.sql"/>

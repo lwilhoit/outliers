@@ -266,11 +266,12 @@ CREATE OR REPLACE PACKAGE BODY Outlier_new_package AS
 					END IF;
 
 					p_replace_type := 'ESTIMATE';
+               RETURN TRUE;
 				ELSE
 					p_replace_type := 'SAME';
+               RETURN FALSE;
 				END IF;
 
-				RETURN TRUE;
 			ELSE
 				p_replace_type := 'SAME';
 				RETURN FALSE;

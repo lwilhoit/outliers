@@ -84,10 +84,17 @@ IS
    v_max_label_prod            NUMBER;
 
    v_ai_rate_ch            VARCHAR2(100);
-   v_prod_rate_ch            VARCHAR2(100);
-   v_median_ai_ch           VARCHAR2(100);
+   v_prod_rate_ch          VARCHAR2(100);
+   v_median_ai_ch          VARCHAR2(100);
    v_max_label_ch          VARCHAR2(100);
+   v_acre_treated_ch       VARCHAR2(100);
+   v_lbs_prd_used_ch       VARCHAR2(100);
+   v_amt_prd_used_ch       VARCHAR2(100);
+   v_acre_treated_orig_ch  VARCHAR2(100);
+   v_lbs_prd_used_orig_ch  VARCHAR2(100);
+   v_amt_prd_used_orig_ch  VARCHAR2(100);
    v_unit_treated_word     VARCHAR2(100);
+   v_unit_treated_orig     VARCHAR2(1);
 
    -- v_ai_lbsapp_ch          VARCHAR2(100);
    -- v_med_lbsapp_ch         VARCHAR2(100);
@@ -297,10 +304,14 @@ BEGIN
          ELSIF v_ai_rate >= 1.0 THEN
             v_ai_rate_ch := CASE WHEN REMAINDER(v_ai_rate, 1) = 0 THEN TO_CHAR(v_ai_rate, 'FM9,999') ELSE TO_CHAR(v_ai_rate, 'FM9,999.99') END;
             --v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999.99');
+         ELSIF v_ai_rate >= 0.1 THEN
+            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.99');
+         ELSIF v_ai_rate >= 0.01 THEN
+            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.999');
          ELSIF v_ai_rate >= 0.001 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.99999');
+            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999');
          ELSE
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999999');
+            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.999999');
          END IF;
 
          IF v_prod_rate >= 100 THEN
@@ -308,8 +319,12 @@ BEGIN
          ELSIF v_prod_rate >= 1.0 THEN
             v_prod_rate_ch := CASE WHEN REMAINDER(v_prod_rate, 1) = 0 THEN TO_CHAR(v_prod_rate, 'FM9,999') ELSE TO_CHAR(v_prod_rate, 'FM9,999.99') END;
             --v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM9,999.99');
+         ELSIF v_prod_rate >= 0.1 THEN
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.99');
+         ELSIF v_prod_rate >= 0.01 THEN
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.999');
          ELSIF v_prod_rate >= 0.001 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.99999');
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999');
          ELSE
             v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999999');
          END IF;
@@ -321,10 +336,14 @@ BEGIN
          ELSIF v_median_ai >= 1.0 THEN
             v_median_ai_ch := CASE WHEN REMAINDER(v_median_ai, 1) = 0 THEN TO_CHAR(v_median_ai, 'FM9,999') ELSE TO_CHAR(v_median_ai, 'FM9,999.99') END;
             --v_median_ai_ch := TO_CHAR(v_median_ai, 'FM9,999.99');
+         ELSIF v_median_ai >= 0.1 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.99');
+         ELSIF v_median_ai >= 0.01 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.999');
          ELSIF v_median_ai >= 0.001 THEN
-            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.99999');
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.9999');
          ELSE
-            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.9999999');
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.999999');
          END IF;
 
          /* Get maximum label rate
@@ -334,10 +353,62 @@ BEGIN
          ELSIF v_max_label_prod >= 1.0 THEN
             v_max_label_ch := CASE WHEN REMAINDER(v_max_label_prod, 1) = 0 THEN TO_CHAR(v_max_label_prod, 'FM9,999') ELSE TO_CHAR(v_max_label_prod, 'FM9,999.99') END;
             --v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM9,999.99');
+         ELSIF v_max_label_prod >= 0.1 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.99');
+         ELSIF v_max_label_prod >= 0.01 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.999');
          ELSIF v_max_label_prod >= 0.001 THEN
-            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.99999');
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.9999');
          ELSE
-            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.9999999');
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.999999');
+         END IF;
+
+         /* Get acre treated
+          */
+         IF p_acre_treated >= 100 THEN
+            v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM9,999,999,999');
+         ELSIF p_acre_treated >= 1.0 THEN
+            v_acre_treated_orig_ch := CASE WHEN REMAINDER(p_acre_treated, 1) = 0 THEN TO_CHAR(p_acre_treated, 'FM9,999') ELSE TO_CHAR(p_acre_treated, 'FM9,999.99') END;
+         ELSIF p_acre_treated >= 0.1 THEN
+            v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.99');
+         ELSIF p_acre_treated >= 0.01 THEN
+            v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.999');
+         ELSIF p_acre_treated >= 0.001 THEN
+            v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.9999');
+         ELSE
+            v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.999999');
+         END IF;
+
+         /* Get lbs_prd_used
+          */
+         IF p_lbs_prd_used >= 100 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM9,999,999,999');
+         ELSIF p_lbs_prd_used >= 1.0 THEN
+            v_lbs_prd_used_orig_ch := CASE WHEN REMAINDER(p_lbs_prd_used, 1) = 0 THEN TO_CHAR(p_lbs_prd_used, 'FM9,999') ELSE TO_CHAR(p_lbs_prd_used, 'FM9,999.99') END;
+         ELSIF p_lbs_prd_used >= 0.1 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99');
+         ELSIF p_lbs_prd_used >= 0.01 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999');
+         ELSIF p_lbs_prd_used >= 0.001 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.9999');
+         ELSE
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999999');
+         END IF;
+
+         /* Get amt_prd_used
+          */
+         IF p_amt_prd_used >= 100 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM9,999,999,999');
+         ELSIF p_amt_prd_used >= 1.0 THEN
+            v_amt_prd_used_orig_ch := CASE WHEN REMAINDER(p_amt_prd_used, 1) = 0 THEN TO_CHAR(p_amt_prd_used, 'FM9,999') ELSE TO_CHAR(p_amt_prd_used, 'FM9,999.99') END;
+         ELSIF p_amt_prd_used >= 0.1 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.99');
+         ELSIF p_amt_prd_used >= 0.01 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.999');
+         ELSIF p_amt_prd_used >= 0.001 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.9999');
+         ELSE
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.999999');
          END IF;
 
          /* Get unit treated as full word.
@@ -376,7 +447,7 @@ BEGIN
 
          IF v_max_label_prod > 0 THEN
             p_comments := p_comments||
-               '; maximum label rate = '||v_max_label_ch||' pounds AI per '||v_unit_treated_word;
+               '; maximum label rate = '||v_max_label_ch||' pounds product per '||v_unit_treated_word;
          END IF;
 
          p_fixed1_rate_outlier := NULL;
@@ -451,6 +522,7 @@ BEGIN
             END IF;
             */
 
+            v_unit_treated_orig := p_unit_treated;
             IF Outlier_new_package.Wrong_unit
                   (v_ago_ind, v_regno_short,
                    v_site_general, p_site_code, p_lbs_prd_used,
@@ -459,17 +531,13 @@ BEGIN
                    p_replace_type)
             THEN
                p_estimated_field := 'UNIT_TREATED';
-               p_comments := p_comments||'; the value for unit_treated was estimated as '||p_unit_treated;
             ELSIF Outlier_new_package.Wrong_acres
                (v_ago_ind, p_site_code, p_lbs_prd_used, v_median_prod,
                 p_acre_planted, p_unit_planted,
                 p_acre_treated, p_unit_treated,
                 p_replace_type)
             THEN
-               IF p_replace_type = 'ESTIMATE' THEN
-                  p_estimated_field := 'ACRE_TREATED';
-                  p_comments := p_comments||'; the value for acre_treated was estimated as '||p_acre_treated;
-               END IF;
+               p_estimated_field := 'ACRE_TREATED';
             ELSE
                -- DBMS_OUTPUT.PUT_LINE('3 (before wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
                Outlier_new_package.Wrong_lbs
@@ -478,11 +546,60 @@ BEGIN
 
                IF p_replace_type = 'ESTIMATE' THEN
                   p_estimated_field := 'LBS_PRD_USED';
-                  p_comments := p_comments||'; the values for lbs_prd_used and amt_prd_used were estimated as '||
-                                          p_lbs_prd_used ||' and '||p_amt_prd_used;
                END IF;
                -- DBMS_OUTPUT.PUT_LINE('3 (after wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
             END IF;
+
+            IF p_estimated_field = 'UNIT_TREATED' THEN
+               p_comments := p_comments||'; the value for unit_treated was estimated as '||p_unit_treated||' (originally '||v_unit_treated_orig||')';
+            ELSIF p_estimated_field = 'ACRE_TREATED'  THEN
+               IF p_acre_treated >= 100 THEN
+                  v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM9,999,999,999');
+               ELSIF p_acre_treated >= 1.0 THEN
+                  v_acre_treated_ch := CASE WHEN REMAINDER(p_acre_treated, 1) = 0 THEN TO_CHAR(p_acre_treated, 'FM9,999') ELSE TO_CHAR(p_acre_treated, 'FM9,999.99') END;
+               ELSIF p_acre_treated >= 0.1 THEN
+                  v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.99');
+               ELSIF p_acre_treated >= 0.01 THEN
+                  v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.999');
+               ELSIF p_acre_treated >= 0.001 THEN
+                  v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.9999');
+               ELSE
+                  v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.999999');
+               END IF;
+
+               p_comments := p_comments||'; the value for acre_treated was estimated as '||v_acre_treated_ch||' (originally '||v_acre_treated_orig_ch||')';
+            ELSIF p_estimated_field = 'LBS_PRD_USED'  THEN
+               IF p_lbs_prd_used >= 100 THEN
+                  v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM9,999,999,999');
+               ELSIF p_lbs_prd_used >= 1.0 THEN
+                  v_lbs_prd_used_ch := CASE WHEN REMAINDER(p_lbs_prd_used, 1) = 0 THEN TO_CHAR(p_lbs_prd_used, 'FM9,999') ELSE TO_CHAR(p_lbs_prd_used, 'FM9,999.99') END;
+               ELSIF p_lbs_prd_used >= 0.1 THEN
+                  v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99');
+               ELSIF p_lbs_prd_used >= 0.01 THEN
+                  v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999');
+               ELSIF p_lbs_prd_used >= 0.001 THEN
+                  v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.9999');
+               ELSE
+                  v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999999');
+               END IF;
+
+               IF p_amt_prd_used >= 100 THEN
+                  v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM9,999,999,999');
+               ELSIF p_amt_prd_used >= 1.0 THEN
+                  v_amt_prd_used_ch := CASE WHEN REMAINDER(p_amt_prd_used, 1) = 0 THEN TO_CHAR(p_amt_prd_used, 'FM9,999') ELSE TO_CHAR(p_amt_prd_used, 'FM9,999.99') END;
+               ELSIF p_amt_prd_used >= 0.1 THEN
+                  v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.99');
+               ELSIF p_amt_prd_used >= 0.01 THEN
+                  v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.999');
+               ELSIF p_amt_prd_used >= 0.001 THEN
+                  v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.9999');
+               ELSE
+                  v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.999999');
+               END IF;
+               p_comments := p_comments||'; the values for lbs_prd_used and amt_prd_used were estimated as '||
+                                       v_lbs_prd_used_ch ||' and '||v_amt_prd_used_ch||' (originally '||v_lbs_prd_used_orig_ch||' and '||v_amt_prd_used_orig_ch||')';
+            END IF;
+
          ELSE
             p_estimated_field := NULL;
             p_error_code := 76;
@@ -583,8 +700,12 @@ BEGIN
             v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999,999,999');
          ELSIF v_ai_rate >= 1.0 THEN
             v_ai_rate_ch := CASE WHEN REMAINDER(v_ai_rate, 1) = 0 THEN TO_CHAR(v_ai_rate, 'FM9,999') ELSE TO_CHAR(v_ai_rate, 'FM9,999.99') END;
+         ELSIF v_ai_rate >= 0.1 THEN
+            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.99');
+         ELSIF v_ai_rate >= 0.01 THEN
+            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.999');
          ELSIF v_ai_rate >= 0.001 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.99999');
+            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999');
          ELSE
             v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999999');
          END IF;
@@ -593,8 +714,12 @@ BEGIN
             v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM9,999,999,999');
          ELSIF v_prod_rate >= 1.0 THEN
             v_prod_rate_ch := CASE WHEN REMAINDER(v_prod_rate, 1) = 0 THEN TO_CHAR(v_prod_rate, 'FM9,999') ELSE TO_CHAR(v_prod_rate, 'FM9,999.99') END;
+         ELSIF v_prod_rate >= 0.1 THEN
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.99');
+         ELSIF v_prod_rate >= 0.01 THEN
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.999');
          ELSIF v_prod_rate >= 0.001 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.99999');
+            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999');
          ELSE
             v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999999');
          END IF;
@@ -605,8 +730,12 @@ BEGIN
             v_median_ai_ch := TO_CHAR(v_median_ai, 'FM9,999,999,999');
          ELSIF v_median_ai >= 1.0 THEN
             v_median_ai_ch := CASE WHEN REMAINDER(v_median_ai, 1) = 0 THEN TO_CHAR(v_median_ai, 'FM9,999') ELSE TO_CHAR(v_median_ai, 'FM9,999.99') END;
+         ELSIF v_median_ai >= 0.1 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.99');
+         ELSIF v_median_ai >= 0.01 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.999');
          ELSIF v_median_ai >= 0.001 THEN
-            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.99999');
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.9999');
          ELSE
             v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.9999999');
          END IF;
@@ -615,9 +744,9 @@ BEGIN
           */
          IF v_ai_rate IS NOT NULL THEN
             p_comments :=
-               'Reported rate of use (per application) = '||v_ai_rate_ch||' pounds of '||lower(v_chemname)||' per number of applications';
+               'Reported rate of use (per application) = '||v_ai_rate_ch||' pounds of '||lower(v_chemname)||' per application';
             p_comments := p_comments||
-               ' (or '||v_prod_rate_ch||' pounds of product per number of applications) ';
+               ' (or '||v_prod_rate_ch||' pounds of product per application) ';
          ELSE
             p_comments := 'Reported rate of use (per application) is unknown ';
          END IF;
