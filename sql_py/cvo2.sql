@@ -32,6 +32,7 @@ CREATE OR REPLACE PROCEDURE Outliers_test
     p_mean8sd_rate_outlier OUT VARCHAR2,
     p_mean10sd_rate_outlier OUT VARCHAR2,
     p_mean12sd_rate_outlier OUT VARCHAR2,
+    p_max_label_outlier OUT VARCHAR2,
     p_outlier_limit_outlier OUT VARCHAR2,
 
     p_comments OUT VARCHAR2,
@@ -48,7 +49,11 @@ CREATE OR REPLACE PROCEDURE Outliers_test
     p_mean7sd_prod OUT NUMBER,
     p_mean8sd_prod OUT NUMBER,
     p_mean10sd_prod OUT NUMBER,
-    p_mean12sd_prod OUT NUMBER)
+    p_mean12sd_prod OUT NUMBER,
+    p_max_label_prod OUT NUMBER,
+
+    p_prod_rate OUT NUMBER,
+    p_ai_rate OUT NUMBER)
 IS
    --v_stat_year             INTEGER := NULL;
 
@@ -69,8 +74,6 @@ IS
 
    v_has_outlier_limits    BOOLEAN;
    v_outlier_limit         NUMBER;
-   v_prod_rate             NUMBER;
-   v_ai_rate            NUMBER;           -- AI rate uses gen_unit_treated
    v_median_ai            NUMBER;          
    v_median_prod            NUMBER;          
    v_fixed1_prod               NUMBER := NULL;
@@ -81,7 +84,6 @@ IS
    v_mean8sd_prod            NUMBER := NULL;
    v_mean10sd_prod            NUMBER := NULL;
    v_mean12sd_prod            NUMBER := NULL;
-   v_max_label_prod            NUMBER;
 
    v_ai_rate_ch            VARCHAR2(100);
    v_prod_rate_ch          VARCHAR2(100);
@@ -149,8 +151,8 @@ BEGIN
       These includes some non-ag records, when a unit treated is reported.
     ********************************************************************************/
    IF p_acre_treated > 0 THEN
-      v_prod_rate := p_lbs_prd_used/p_acre_treated;
-      --DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
+      p_prod_rate := p_lbs_prd_used/p_acre_treated;
+      --DBMS_OUTPUT.PUT_LINE('p_prod_rate = '||p_prod_rate);
  
       BEGIN
          SELECT  fixed1, fixed2, fixed3, 
@@ -211,7 +213,7 @@ BEGIN
                      WHEN 'T' THEN max_rate*2000
                      ELSE max_rate
                   END * 1.1
-         INTO     v_max_label_prod
+         INTO     p_max_label_prod
          FROM     max_label_rates
          WHERE    prodno = p_prodno AND
                   unit_treated = 
@@ -223,10 +225,10 @@ BEGIN
                      END;
       EXCEPTION
          WHEN OTHERS THEN
-            v_max_label_prod := NULL;
+            p_max_label_prod := NULL;
       END;
 
-      --DBMS_OUTPUT.PUT_LINE('v_max_label_prod = '||v_max_label_prod);
+      --DBMS_OUTPUT.PUT_LINE('p_max_label_prod = '||p_max_label_prod);
 
 
       /**************************************************************
@@ -245,14 +247,14 @@ BEGIN
       COALESCE() returns the first non-null expression in the list.
       */
       IF v_has_outlier_limits THEN
-         v_fixed1_prod := COALESCE(GREATEST(v_fixed1_prod, v_max_label_prod), v_fixed1_prod, v_max_label_prod);
-         v_fixed2_prod := COALESCE(GREATEST(v_fixed2_prod, v_max_label_prod), v_fixed2_prod, v_max_label_prod);
-         v_fixed3_prod := COALESCE(GREATEST(v_fixed3_prod, v_max_label_prod), v_fixed3_prod, v_max_label_prod);
-         v_mean5sd_prod := COALESCE(GREATEST(v_mean5sd_prod, v_max_label_prod), v_mean5sd_prod, v_max_label_prod);
-         v_mean7sd_prod := COALESCE(GREATEST(v_mean7sd_prod, v_max_label_prod), v_mean7sd_prod, v_max_label_prod);
-         v_mean8sd_prod := COALESCE(GREATEST(v_mean8sd_prod, v_max_label_prod), v_mean8sd_prod, v_max_label_prod);
-         v_mean10sd_prod := COALESCE(GREATEST(v_mean10sd_prod, v_max_label_prod), v_mean10sd_prod, v_max_label_prod);
-         v_mean12sd_prod := COALESCE(GREATEST(v_mean12sd_prod, v_max_label_prod), v_mean12sd_prod, v_max_label_prod);
+         v_fixed1_prod := COALESCE(GREATEST(v_fixed1_prod, p_max_label_prod), v_fixed1_prod, p_max_label_prod);
+         v_fixed2_prod := COALESCE(GREATEST(v_fixed2_prod, p_max_label_prod), v_fixed2_prod, p_max_label_prod);
+         v_fixed3_prod := COALESCE(GREATEST(v_fixed3_prod, p_max_label_prod), v_fixed3_prod, p_max_label_prod);
+         v_mean5sd_prod := COALESCE(GREATEST(v_mean5sd_prod, p_max_label_prod), v_mean5sd_prod, p_max_label_prod);
+         v_mean7sd_prod := COALESCE(GREATEST(v_mean7sd_prod, p_max_label_prod), v_mean7sd_prod, p_max_label_prod);
+         v_mean8sd_prod := COALESCE(GREATEST(v_mean8sd_prod, p_max_label_prod), v_mean8sd_prod, p_max_label_prod);
+         v_mean10sd_prod := COALESCE(GREATEST(v_mean10sd_prod, p_max_label_prod), v_mean10sd_prod, p_max_label_prod);
+         v_mean12sd_prod := COALESCE(GREATEST(v_mean12sd_prod, p_max_label_prod), v_mean12sd_prod, p_max_label_prod);
 
          p_median_prod := v_median_prod;
          p_fixed1_prod := v_fixed1_prod;
@@ -268,23 +270,23 @@ BEGIN
 
       /* Determine if this rate is an outlier by each criterion.
        */
-      IF v_prod_rate > 0 AND
-         ((v_prod_rate > v_max_label_prod AND v_max_label_prod IS NOT NULL) OR
-          (v_prod_rate > v_fixed1_prod AND v_fixed1_prod IS NOT NULL) OR
-          (v_prod_rate > v_fixed2_prod AND v_fixed2_prod IS NOT NULL) OR
-          (v_prod_rate > v_fixed3_prod AND v_fixed3_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean5sd_prod AND v_mean5sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean7sd_prod AND v_mean7sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean8sd_prod AND v_mean8sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean10sd_prod AND v_mean10sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean12sd_prod AND v_mean12sd_prod IS NOT NULL))
+      IF p_prod_rate > 0 AND
+         ((p_prod_rate > p_max_label_prod AND p_max_label_prod IS NOT NULL) OR
+          (p_prod_rate > v_fixed1_prod AND v_fixed1_prod IS NOT NULL) OR
+          (p_prod_rate > v_fixed2_prod AND v_fixed2_prod IS NOT NULL) OR
+          (p_prod_rate > v_fixed3_prod AND v_fixed3_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean5sd_prod AND v_mean5sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean7sd_prod AND v_mean7sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean8sd_prod AND v_mean8sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean10sd_prod AND v_mean10sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean12sd_prod AND v_mean12sd_prod IS NOT NULL))
       THEN
-         v_ai_rate := v_prod_rate*v_prodchem_pct/100;
+         p_ai_rate := p_prod_rate*v_prodchem_pct/100;
          v_median_ai := v_median_prod*v_prodchem_pct/100;
 
-         --DBMS_OUTPUT.PUT_LINE('v_ai_rate = '||v_ai_rate);
+         --DBMS_OUTPUT.PUT_LINE('p_ai_rate = '||p_ai_rate);
          /*
-         --DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
+         --DBMS_OUTPUT.PUT_LINE('p_prod_rate = '||p_prod_rate);
          --DBMS_OUTPUT.PUT_LINE('v_fixed1_prod = '||v_fixed1_prod);
          --DBMS_OUTPUT.PUT_LINE('v_fixed2_prod = '||v_fixed2_prod);
          --DBMS_OUTPUT.PUT_LINE('v_fixed3_prod = '||v_fixed3_prod);
@@ -299,34 +301,44 @@ BEGIN
          /* For rates of use set number of decimals to display
             based on size of the rate.
           */
-         IF v_ai_rate >= 100 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999,999,999');
-         ELSIF v_ai_rate >= 1.0 THEN
-            v_ai_rate_ch := CASE WHEN REMAINDER(v_ai_rate, 1) = 0 THEN TO_CHAR(v_ai_rate, 'FM9,999') ELSE TO_CHAR(v_ai_rate, 'FM9,999.99') END;
-            --v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999.99');
-         ELSIF v_ai_rate >= 0.1 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.99');
-         ELSIF v_ai_rate >= 0.01 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.999');
-         ELSIF v_ai_rate >= 0.001 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999');
+         IF p_ai_rate >= 100 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM9,999,999,999');
+         ELSIF p_ai_rate >= 1.0 THEN
+            v_ai_rate_ch := CASE WHEN REMAINDER(p_ai_rate, 1) = 0 THEN TO_CHAR(p_ai_rate, 'FM9,999') ELSE TO_CHAR(p_ai_rate, 'FM9,999.99') END;
+            --v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM9,999.99');
+         ELSIF p_ai_rate >= 0.1 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.99');
+         ELSIF p_ai_rate >= 0.01 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.999');
+         ELSIF p_ai_rate >= 0.001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.9999');
+         ELSIF p_ai_rate >= 0.0001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.99999');
+         ELSIF p_ai_rate >= 0.00001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.999999');
+         ELSIF p_ai_rate >= 0.000001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.9999999');
+         ELSIF p_ai_rate >= 0.0000001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.99999999');
          ELSE
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.999999');
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.9999999999');
          END IF;
 
-         IF v_prod_rate >= 100 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM9,999,999,999');
-         ELSIF v_prod_rate >= 1.0 THEN
-            v_prod_rate_ch := CASE WHEN REMAINDER(v_prod_rate, 1) = 0 THEN TO_CHAR(v_prod_rate, 'FM9,999') ELSE TO_CHAR(v_prod_rate, 'FM9,999.99') END;
-            --v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM9,999.99');
-         ELSIF v_prod_rate >= 0.1 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.99');
-         ELSIF v_prod_rate >= 0.01 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.999');
-         ELSIF v_prod_rate >= 0.001 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999');
+         IF p_prod_rate >= 100 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM9,999,999,999');
+         ELSIF p_prod_rate >= 1.0 THEN
+            v_prod_rate_ch := CASE WHEN REMAINDER(p_prod_rate, 1) = 0 THEN TO_CHAR(p_prod_rate, 'FM9,999') ELSE TO_CHAR(p_prod_rate, 'FM9,999.99') END;
+            --v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM9,999.99');
+         ELSIF p_prod_rate >= 0.1 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.99');
+         ELSIF p_prod_rate >= 0.01 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.999');
+         ELSIF p_prod_rate >= 0.001 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.9999');
+         ELSIF p_prod_rate >= 0.0001 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.99999');
          ELSE
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999999');
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.999999');
          END IF;
 
          /* Get median rate
@@ -342,25 +354,29 @@ BEGIN
             v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.999');
          ELSIF v_median_ai >= 0.001 THEN
             v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.9999');
+         ELSIF v_median_ai >= 0.0001 THEN
+            v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.99999');
          ELSE
             v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.999999');
          END IF;
 
          /* Get maximum label rate
           */
-         IF v_max_label_prod >= 100 THEN
-            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM9,999,999,999');
-         ELSIF v_max_label_prod >= 1.0 THEN
-            v_max_label_ch := CASE WHEN REMAINDER(v_max_label_prod, 1) = 0 THEN TO_CHAR(v_max_label_prod, 'FM9,999') ELSE TO_CHAR(v_max_label_prod, 'FM9,999.99') END;
-            --v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM9,999.99');
-         ELSIF v_max_label_prod >= 0.1 THEN
-            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.99');
-         ELSIF v_max_label_prod >= 0.01 THEN
-            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.999');
-         ELSIF v_max_label_prod >= 0.001 THEN
-            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.9999');
+         IF p_max_label_prod >= 100 THEN
+            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM9,999,999,999');
+         ELSIF p_max_label_prod >= 1.0 THEN
+            v_max_label_ch := CASE WHEN REMAINDER(p_max_label_prod, 1) = 0 THEN TO_CHAR(p_max_label_prod, 'FM9,999') ELSE TO_CHAR(p_max_label_prod, 'FM9,999.99') END;
+            --v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM9,999.99');
+         ELSIF p_max_label_prod >= 0.1 THEN
+            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.99');
+         ELSIF p_max_label_prod >= 0.01 THEN
+            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.999');
+         ELSIF p_max_label_prod >= 0.001 THEN
+            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.9999');
+         ELSIF p_max_label_prod >= 0.0001 THEN
+            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.99999');
          ELSE
-            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.999999');
+            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.999999');
          END IF;
 
          /* Get acre treated
@@ -375,6 +391,8 @@ BEGIN
             v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.999');
          ELSIF p_acre_treated >= 0.001 THEN
             v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.9999');
+         ELSIF p_acre_treated >= 0.0001 THEN
+            v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.99999');
          ELSE
             v_acre_treated_orig_ch := TO_CHAR(p_acre_treated, 'FM0.999999');
          END IF;
@@ -391,6 +409,8 @@ BEGIN
             v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999');
          ELSIF p_lbs_prd_used >= 0.001 THEN
             v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.9999');
+         ELSIF p_lbs_prd_used >= 0.0001 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99999');
          ELSE
             v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999999');
          END IF;
@@ -407,6 +427,8 @@ BEGIN
             v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.999');
          ELSIF p_amt_prd_used >= 0.001 THEN
             v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.9999');
+         ELSIF p_amt_prd_used >= 0.0001 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.99999');
          ELSE
             v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.999999');
          END IF;
@@ -428,7 +450,7 @@ BEGIN
 
          /* Construct the comment.
           */
-         IF v_ai_rate IS NOT NULL THEN
+         IF p_ai_rate IS NOT NULL THEN
             p_comments :=
                'Reported rate of use = '||v_ai_rate_ch||' pounds of '||lower(v_chemname)||' per '||v_unit_treated_word;
             p_comments := p_comments||
@@ -445,7 +467,7 @@ BEGIN
                'median rate of use is unknown';
          END IF;         
 
-         IF v_max_label_prod > 0 THEN
+         IF p_max_label_prod > 0 THEN
             p_comments := p_comments||
                '; maximum label rate = '||v_max_label_ch||' pounds product per '||v_unit_treated_word;
          END IF;
@@ -459,48 +481,53 @@ BEGIN
          p_mean10sd_rate_outlier := NULL;
          p_mean12sd_rate_outlier := NULL;
 
-         IF v_prod_rate > v_fixed3_prod AND v_fixed3_prod > 0 THEN
+         IF p_prod_rate > v_fixed3_prod AND v_fixed3_prod > 0 THEN
             p_fixed1_rate_outlier := 'X';
             p_fixed2_rate_outlier := 'X';
             p_fixed3_rate_outlier := 'X';
             p_comments := p_comments||'; rate > fixed3 limit';
-         ELSIF v_prod_rate > v_fixed2_prod AND v_fixed2_prod > 0 THEN
+         ELSIF p_prod_rate > v_fixed2_prod AND v_fixed2_prod > 0 THEN
             p_fixed1_rate_outlier := 'X';
             p_fixed2_rate_outlier := 'X';
             p_comments := p_comments||'; rate > fixed2 limit';
-         ELSIF v_prod_rate > v_fixed1_prod AND v_fixed1_prod > 0 THEN
+         ELSIF p_prod_rate > v_fixed1_prod AND v_fixed1_prod > 0 THEN
             p_fixed1_rate_outlier := 'X';
             p_comments := p_comments||'; rate > fixed1 limit';
          END IF;
 
-         IF v_prod_rate > v_mean12sd_prod AND v_mean12sd_prod > 0 THEN
+         IF p_prod_rate > v_mean12sd_prod AND v_mean12sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_mean8sd_rate_outlier := 'X';
             p_mean10sd_rate_outlier := 'X';
             p_mean12sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 12*SD';
-         ELSIF v_prod_rate > v_mean10sd_prod AND v_mean10sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean10sd_prod AND v_mean10sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_mean8sd_rate_outlier := 'X';
             p_mean10sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 10*SD';
-         ELSIF v_prod_rate > v_mean8sd_prod AND v_mean8sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean8sd_prod AND v_mean8sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_mean8sd_rate_outlier := 'X';
            p_comments := p_comments||'; rate > mean + 8*SD';
-         ELSIF v_prod_rate > v_mean7sd_prod AND v_mean7sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean7sd_prod AND v_mean7sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 7*SD';
-         ELSIF v_prod_rate > v_mean5sd_prod AND v_mean5sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean5sd_prod AND v_mean5sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 5*SD';
          END IF;
 
-         IF v_prod_rate > v_outlier_limit AND v_outlier_limit > 0  THEN
+         IF p_prod_rate > p_max_label_prod AND p_max_label_prod > 0 THEN
+            p_max_label_outlier := 'X';
+            p_comments := p_comments||'; rate > maximum label rate';
+         END IF;
+
+         IF p_prod_rate > v_outlier_limit AND v_outlier_limit > 0  THEN
             p_outlier_limit_outlier := 'X';
             p_comments := p_comments||'; rate > outlier limit';
 
@@ -541,7 +568,7 @@ BEGIN
             ELSE
                -- DBMS_OUTPUT.PUT_LINE('3 (before wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
                Outlier_new_package.Wrong_lbs
-               (v_prod_rate, v_median_prod, v_prodchem_pct, p_acre_treated, p_lbs_prd_used, p_amt_prd_used,
+               (p_prod_rate, v_median_prod, v_prodchem_pct, p_acre_treated, p_lbs_prd_used, p_amt_prd_used,
                 p_replace_type);
 
                IF p_replace_type = 'ESTIMATE' THEN
@@ -563,6 +590,8 @@ BEGIN
                   v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.999');
                ELSIF p_acre_treated >= 0.001 THEN
                   v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.9999');
+               ELSIF p_acre_treated >= 0.0001 THEN
+                  v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.99999');
                ELSE
                   v_acre_treated_ch := TO_CHAR(p_acre_treated, 'FM0.999999');
                END IF;
@@ -579,6 +608,8 @@ BEGIN
                   v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999');
                ELSIF p_lbs_prd_used >= 0.001 THEN
                   v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.9999');
+               ELSIF p_lbs_prd_used >= 0.0001 THEN
+                  v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99999');
                ELSE
                   v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999999');
                END IF;
@@ -593,6 +624,8 @@ BEGIN
                   v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.999');
                ELSIF p_amt_prd_used >= 0.001 THEN
                   v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.9999');
+               ELSIF p_amt_prd_used >= 0.0001 THEN
+                  v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.99999');
                ELSE
                   v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.999999');
                END IF;
@@ -616,8 +649,8 @@ BEGIN
       in those case we check both its rate of use (lbs/unit) and its lbs/application.
     ********************************************************************************/
    IF p_record_id IN ('2', 'C') AND (p_error_type IS NULL OR p_error_type = 'N') THEN
-      v_prod_rate := p_lbs_prd_used/CASE WHEN p_applic_cnt IS NULL OR p_applic_cnt < 1 THEN 1 ELSE p_applic_cnt END;
-      --DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
+      p_prod_rate := p_lbs_prd_used/CASE WHEN p_applic_cnt IS NULL OR p_applic_cnt < 1 THEN 1 ELSE p_applic_cnt END;
+      --DBMS_OUTPUT.PUT_LINE('p_prod_rate = '||p_prod_rate);
 
       BEGIN
          SELECT  fixed1, fixed2, fixed3, 
@@ -666,22 +699,22 @@ BEGIN
 
       /* Determine if this rate is an outlier by each criterion.
        */
-      IF v_prod_rate > 0 AND
-         ((v_prod_rate > v_fixed1_prod AND v_fixed1_prod IS NOT NULL) OR
-          (v_prod_rate > v_fixed2_prod AND v_fixed2_prod IS NOT NULL) OR
-          (v_prod_rate > v_fixed3_prod AND v_fixed3_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean5sd_prod AND v_mean5sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean7sd_prod AND v_mean7sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean8sd_prod AND v_mean8sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean10sd_prod AND v_mean10sd_prod IS NOT NULL) OR
-          (v_prod_rate > v_mean12sd_prod AND v_mean12sd_prod IS NOT NULL))
+      IF p_prod_rate > 0 AND
+         ((p_prod_rate > v_fixed1_prod AND v_fixed1_prod IS NOT NULL) OR
+          (p_prod_rate > v_fixed2_prod AND v_fixed2_prod IS NOT NULL) OR
+          (p_prod_rate > v_fixed3_prod AND v_fixed3_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean5sd_prod AND v_mean5sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean7sd_prod AND v_mean7sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean8sd_prod AND v_mean8sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean10sd_prod AND v_mean10sd_prod IS NOT NULL) OR
+          (p_prod_rate > v_mean12sd_prod AND v_mean12sd_prod IS NOT NULL))
       THEN
-         v_ai_rate := v_prod_rate*v_prodchem_pct/100;
+         p_ai_rate := p_prod_rate*v_prodchem_pct/100;
          v_median_ai := v_median_prod*v_prodchem_pct/100;
 
-         --DBMS_OUTPUT.PUT_LINE('v_ai_rate = '||v_ai_rate);
+         --DBMS_OUTPUT.PUT_LINE('p_ai_rate = '||p_ai_rate);
          /*
-         --DBMS_OUTPUT.PUT_LINE('v_prod_rate = '||v_prod_rate);
+         --DBMS_OUTPUT.PUT_LINE('p_prod_rate = '||p_prod_rate);
          --DBMS_OUTPUT.PUT_LINE('v_fixed1_prod = '||v_fixed1_prod);
          --DBMS_OUTPUT.PUT_LINE('v_fixed2_prod = '||v_fixed2_prod);
          --DBMS_OUTPUT.PUT_LINE('v_fixed3_prod = '||v_fixed3_prod);
@@ -696,32 +729,40 @@ BEGIN
          /* For rates of use set number of decimals to display
             based on size of the rate.
           */
-         IF v_ai_rate >= 100 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM9,999,999,999');
-         ELSIF v_ai_rate >= 1.0 THEN
-            v_ai_rate_ch := CASE WHEN REMAINDER(v_ai_rate, 1) = 0 THEN TO_CHAR(v_ai_rate, 'FM9,999') ELSE TO_CHAR(v_ai_rate, 'FM9,999.99') END;
-         ELSIF v_ai_rate >= 0.1 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.99');
-         ELSIF v_ai_rate >= 0.01 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.999');
-         ELSIF v_ai_rate >= 0.001 THEN
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999');
+         IF p_ai_rate >= 100 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM9,999,999,999');
+         ELSIF p_ai_rate >= 1.0 THEN
+            v_ai_rate_ch := CASE WHEN REMAINDER(p_ai_rate, 1) = 0 THEN TO_CHAR(p_ai_rate, 'FM9,999') ELSE TO_CHAR(p_ai_rate, 'FM9,999.99') END;
+         ELSIF p_ai_rate >= 0.1 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.99');
+         ELSIF p_ai_rate >= 0.01 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.999');
+         ELSIF p_ai_rate >= 0.001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.9999');
+         ELSIF p_ai_rate >= 0.0001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.99999');
+         ELSIF p_ai_rate >= 0.00001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.999999');
+         ELSIF p_ai_rate >= 0.000001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.9999999');
+         ELSIF p_ai_rate >= 0.0000001 THEN
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.99999999');
          ELSE
-            v_ai_rate_ch := TO_CHAR(v_ai_rate, 'FM0.9999999');
+            v_ai_rate_ch := TO_CHAR(p_ai_rate, 'FM0.9999999999');
          END IF;
 
-         IF v_prod_rate >= 100 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM9,999,999,999');
-         ELSIF v_prod_rate >= 1.0 THEN
-            v_prod_rate_ch := CASE WHEN REMAINDER(v_prod_rate, 1) = 0 THEN TO_CHAR(v_prod_rate, 'FM9,999') ELSE TO_CHAR(v_prod_rate, 'FM9,999.99') END;
-         ELSIF v_prod_rate >= 0.1 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.99');
-         ELSIF v_prod_rate >= 0.01 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.999');
-         ELSIF v_prod_rate >= 0.001 THEN
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999');
+         IF p_prod_rate >= 100 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM9,999,999,999');
+         ELSIF p_prod_rate >= 1.0 THEN
+            v_prod_rate_ch := CASE WHEN REMAINDER(p_prod_rate, 1) = 0 THEN TO_CHAR(p_prod_rate, 'FM9,999') ELSE TO_CHAR(p_prod_rate, 'FM9,999.99') END;
+         ELSIF p_prod_rate >= 0.1 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.99');
+         ELSIF p_prod_rate >= 0.01 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.999');
+         ELSIF p_prod_rate >= 0.001 THEN
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.9999');
          ELSE
-            v_prod_rate_ch := TO_CHAR(v_prod_rate, 'FM0.9999999');
+            v_prod_rate_ch := TO_CHAR(p_prod_rate, 'FM0.9999999');
          END IF;
 
          /* Get median rate
@@ -742,7 +783,7 @@ BEGIN
 
          /* Construct the comment.
           */
-         IF v_ai_rate IS NOT NULL THEN
+         IF p_ai_rate IS NOT NULL THEN
             p_comments :=
                'Reported rate of use (per application) = '||v_ai_rate_ch||' pounds of '||lower(v_chemname)||' per application';
             p_comments := p_comments||
@@ -760,48 +801,48 @@ BEGIN
          p_mean10sd_rate_outlier := NULL;
          p_mean12sd_rate_outlier := NULL;
 
-         IF v_prod_rate > v_fixed3_prod AND v_fixed3_prod > 0 THEN
+         IF p_prod_rate > v_fixed3_prod AND v_fixed3_prod > 0 THEN
             p_fixed1_rate_outlier := 'X';
             p_fixed2_rate_outlier := 'X';
             p_fixed3_rate_outlier := 'X';
             p_comments := p_comments||'; rate > fixed3 limit';
-         ELSIF v_prod_rate > v_fixed2_prod AND v_fixed2_prod > 0 THEN
+         ELSIF p_prod_rate > v_fixed2_prod AND v_fixed2_prod > 0 THEN
             p_fixed1_rate_outlier := 'X';
             p_fixed2_rate_outlier := 'X';
             p_comments := p_comments||'; rate > fixed2 limit';
-         ELSIF v_prod_rate > v_fixed1_prod AND v_fixed1_prod > 0 THEN
+         ELSIF p_prod_rate > v_fixed1_prod AND v_fixed1_prod > 0 THEN
             p_fixed1_rate_outlier := 'X';
             p_comments := p_comments||'; rate > fixed1 limit';
          END IF;
 
-         IF v_prod_rate > v_mean12sd_prod AND v_mean12sd_prod > 0 THEN
+         IF p_prod_rate > v_mean12sd_prod AND v_mean12sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_mean8sd_rate_outlier := 'X';
             p_mean10sd_rate_outlier := 'X';
             p_mean12sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 12*SD';
-         ELSIF v_prod_rate > v_mean10sd_prod AND v_mean10sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean10sd_prod AND v_mean10sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_mean8sd_rate_outlier := 'X';
             p_mean10sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 10*SD';
-         ELSIF v_prod_rate > v_mean8sd_prod AND v_mean8sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean8sd_prod AND v_mean8sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_mean8sd_rate_outlier := 'X';
            p_comments := p_comments||'; rate > mean + 8*SD';
-         ELSIF v_prod_rate > v_mean7sd_prod AND v_mean7sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean7sd_prod AND v_mean7sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_mean7sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 7*SD';
-         ELSIF v_prod_rate > v_mean5sd_prod AND v_mean5sd_prod > 0 THEN
+         ELSIF p_prod_rate > v_mean5sd_prod AND v_mean5sd_prod > 0 THEN
             p_mean5sd_rate_outlier := 'X';
             p_comments := p_comments||'; rate > mean + 5*SD';
          END IF;
 
-         IF v_prod_rate > v_outlier_limit AND v_outlier_limit > 0  THEN
+         IF p_prod_rate > v_outlier_limit AND v_outlier_limit > 0  THEN
             p_outlier_limit_outlier := 'X';
             p_comments := p_comments||'; rate > outlier limit';
 
@@ -811,7 +852,7 @@ BEGIN
             p_replace_type := NULL;
 
             Outlier_new_package.Wrong_lbs_app
-               (v_prod_rate, v_median_prod, v_prodchem_pct, p_applic_cnt, p_lbs_prd_used, p_amt_prd_used,
+               (p_prod_rate, v_median_prod, v_prodchem_pct, p_applic_cnt, p_lbs_prd_used, p_amt_prd_used,
                 p_replace_type);
          
             IF p_replace_type = 'ESTIMATE' THEN

@@ -79,7 +79,7 @@ INSERT INTO ai_raw_rates_test
 
 COMMIT;
 */
-
+/*
 DROP TABLE Outliers_test_results;
 CREATE TABLE Outliers_test_results
    (use_no              INTEGER,
@@ -95,6 +95,7 @@ CREATE TABLE Outliers_test_results
     chemname            VARCHAR2(200), -- The AI which resulted in this product having outlier
     prodchem_pct        NUMBER,
     ai_rate_type        VARCHAR2(50),
+    lbs_ai_app_type     VARCHAR2(50),
     prodno              INTEGER,
     lbs_prd_used        NUMBER,
     amt_prd_used        NUMBER,
@@ -103,8 +104,8 @@ CREATE TABLE Outliers_test_results
     unit_treated_report VARCHAR2(1),
     applic_cnt          INTEGER,
     lbs_ai              NUMBER,
-    ai_rate             NUMBER,
     prod_rate           NUMBER,
+    ai_rate             NUMBER,
     lbs_ai_per_app      NUMBER,
     lbs_prod_per_app    NUMBER,
     fixed1              VARCHAR2(1),
@@ -115,11 +116,12 @@ CREATE TABLE Outliers_test_results
     mean8sd   				VARCHAR2(1),
     mean10sd   			VARCHAR2(1),
     mean12sd   			VARCHAR2(1),
+    max_label   			VARCHAR2(1),
     outlier_limit       VARCHAR2(1),
     comments            VARCHAR2(2000),
-    estimated_field     VARCHAR2(100),
     error_code          INTEGER,
     error_type          VARCHAR2(100),
+    estimated_field     VARCHAR2(100),
     replace_type        VARCHAR2(100),
     median_prod         NUMBER,
     fixed1_prod         NUMBER,
@@ -129,13 +131,15 @@ CREATE TABLE Outliers_test_results
     mean7sd_prod   		NUMBER,
     mean8sd_prod   		NUMBER,
     mean10sd_prod   		NUMBER,
-    mean12sd_prod   		NUMBER)
+    mean12sd_prod   		NUMBER,
+    max_label_prod  		NUMBER)
 NOLOGGING
 PCTUSED 95
 PCTFREE 3
 STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
-
+*/
+/*
 DECLARE
    v_fixed1          VARCHAR2(1);
    v_fixed2          VARCHAR2(1);
@@ -146,6 +150,7 @@ DECLARE
    v_mean10          VARCHAR2(1);
    v_mean12          VARCHAR2(1);
    v_outlier_limit   VARCHAR2(1);
+   v_max_label       VARCHAR2(1);
    v_comments        VARCHAR2(1000);
    v_estimated_field VARCHAR2(100);
    v_error_code      INTEGER;
@@ -161,19 +166,23 @@ DECLARE
    v_mean8sd_prod    NUMBER := NULL;
    v_mean10sd_prod   NUMBER := NULL;
    v_mean12sd_prod   NUMBER := NULL;
+   v_max_label_prod  NUMBER := NULL;
+
+   v_ai_rate         NUMBER;
+   v_prod_rate       NUMBER;
 
    v_index           INTEGER;
 
+   *
    CURSOR raw_cur IS
       SELECT   *
       FROM     ai_raw_rates_test;
-   /*
+   *
    CURSOR raw_cur IS
       SELECT   *
       FROM     ai_raw_rates left JOIN chemical using (chem_code)
       WHERE    year = 2016 AND
                use_no < 1000000;
-   */
 BEGIN
    v_index := 0;
    FOR raw_rec IN raw_cur LOOP
@@ -181,25 +190,27 @@ BEGIN
                     raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, 
                     raw_rec.acre_planted, raw_rec.unit_planted, raw_rec.applic_cnt, 
                     v_fixed1, v_fixed2, v_fixed3, 
-                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
+                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
                     v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
                     v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+                    v_max_label_prod, v_prod_rate, v_ai_rate);
 
       INSERT INTO Outliers_test_results VALUES
          (raw_rec.use_no, raw_rec.ago_ind, raw_rec.record_id, raw_rec.unit_treated, 
           raw_rec.regno_short, raw_rec.site_general, raw_rec.site_type, raw_rec.site_code, raw_rec.site_name,
           raw_rec.chem_code, raw_rec.chemname, raw_rec.prodchem_pct,
-          raw_rec.ai_rate_type, 
+          raw_rec.ai_rate_type, raw_rec.lbs_ai_app_type,
           raw_rec.prodno, raw_rec.lbs_prd_used, raw_rec.amt_prd_used, raw_rec.amt_treated, raw_rec.acre_treated, 
           raw_rec.unit_treated_report, raw_rec.applic_cnt, 
-          raw_rec.lbs_ai, raw_rec.ai_rate, raw_rec.prod_rate,
+          raw_rec.lbs_ai, v_prod_rate, v_ai_rate,
           raw_rec.lbs_ai_per_app, raw_rec.lbs_prod_per_app,
           v_fixed1, v_fixed2, v_fixed3, 
-          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
-          v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
+          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
+          v_comments, v_error_code, v_error_type, v_estimated_field, v_replace_type,
           v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+          v_max_label_prod);
 
       v_index := v_index + 1;
       IF v_index > 100 THEN
@@ -216,9 +227,9 @@ EXCEPTION
 END Outliers_test;
 /
 show errors
+*/
 
 
-/*
 DECLARE
    v_fixed1          VARCHAR2(1);
    v_fixed2          VARCHAR2(1);
@@ -229,6 +240,7 @@ DECLARE
    v_mean10          VARCHAR2(1);
    v_mean12          VARCHAR2(1);
    v_outlier_limit   VARCHAR2(1);
+   v_max_label       VARCHAR2(1);
    v_comments        VARCHAR2(1000);
    v_estimated_field VARCHAR2(100);
    v_error_code      INTEGER;
@@ -244,6 +256,10 @@ DECLARE
    v_mean8sd_prod    NUMBER := NULL;
    v_mean10sd_prod   NUMBER := NULL;
    v_mean12sd_prod   NUMBER := NULL;
+   v_max_label_prod  NUMBER := NULL;
+
+   v_ai_rate         NUMBER;
+   v_prod_rate       NUMBER;
 
    v_index           INTEGER;
 
@@ -256,27 +272,30 @@ BEGIN
    v_index := 0;
    FOR raw_rec IN raw_cur LOOP
       Outliers_test(raw_rec.record_id, raw_rec.prodno, raw_rec.site_code, raw_rec.lbs_prd_used, 
-                    raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, raw_rec.applic_cnt, 
+                    raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, 
+                    raw_rec.acre_planted, raw_rec.unit_planted, raw_rec.applic_cnt, 
                     v_fixed1, v_fixed2, v_fixed3, 
-                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
+                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
                     v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
                     v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+                    v_max_label_prod, v_prod_rate, v_ai_rate);
 
       INSERT INTO Outliers_test_results VALUES
          (raw_rec.use_no, raw_rec.ago_ind, raw_rec.record_id, raw_rec.unit_treated, 
           raw_rec.regno_short, raw_rec.site_general, raw_rec.site_type, raw_rec.site_code, raw_rec.site_name,
           raw_rec.chem_code, raw_rec.chemname, raw_rec.prodchem_pct,
-          raw_rec.ai_rate_type, 
+          raw_rec.ai_rate_type, raw_rec.lbs_ai_app_type,
           raw_rec.prodno, raw_rec.lbs_prd_used, raw_rec.amt_prd_used, raw_rec.amt_treated, raw_rec.acre_treated, 
           raw_rec.unit_treated_report, raw_rec.applic_cnt, 
-          raw_rec.lbs_ai, raw_rec.ai_rate, raw_rec.prod_rate,
+          raw_rec.lbs_ai, v_prod_rate, v_ai_rate,
           raw_rec.lbs_ai_per_app, raw_rec.lbs_prod_per_app,
           v_fixed1, v_fixed2, v_fixed3, 
-          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
-          v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
+          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
+          v_comments, v_error_code, v_error_type, v_estimated_field, v_replace_type,
           v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+          v_max_label_prod);
 
       v_index := v_index + 1;
       IF v_index > 100 THEN
@@ -304,6 +323,7 @@ DECLARE
    v_mean10          VARCHAR2(1);
    v_mean12          VARCHAR2(1);
    v_outlier_limit   VARCHAR2(1);
+   v_max_label       VARCHAR2(1);
    v_comments        VARCHAR2(1000);
    v_estimated_field VARCHAR2(100);
    v_error_code      INTEGER;
@@ -319,6 +339,10 @@ DECLARE
    v_mean8sd_prod    NUMBER := NULL;
    v_mean10sd_prod   NUMBER := NULL;
    v_mean12sd_prod   NUMBER := NULL;
+   v_max_label_prod  NUMBER := NULL;
+
+   v_ai_rate         NUMBER;
+   v_prod_rate       NUMBER;
 
    v_index           INTEGER;
 
@@ -331,27 +355,30 @@ BEGIN
    v_index := 0;
    FOR raw_rec IN raw_cur LOOP
       Outliers_test(raw_rec.record_id, raw_rec.prodno, raw_rec.site_code, raw_rec.lbs_prd_used, 
-                    raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, raw_rec.applic_cnt, 
+                    raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, 
+                    raw_rec.acre_planted, raw_rec.unit_planted, raw_rec.applic_cnt, 
                     v_fixed1, v_fixed2, v_fixed3, 
-                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
+                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
                     v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
                     v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+                    v_max_label_prod, v_prod_rate, v_ai_rate);
 
       INSERT INTO Outliers_test_results VALUES
          (raw_rec.use_no, raw_rec.ago_ind, raw_rec.record_id, raw_rec.unit_treated, 
           raw_rec.regno_short, raw_rec.site_general, raw_rec.site_type, raw_rec.site_code, raw_rec.site_name,
           raw_rec.chem_code, raw_rec.chemname, raw_rec.prodchem_pct,
-          raw_rec.ai_rate_type, 
+          raw_rec.ai_rate_type, raw_rec.lbs_ai_app_type,
           raw_rec.prodno, raw_rec.lbs_prd_used, raw_rec.amt_prd_used, raw_rec.amt_treated, raw_rec.acre_treated, 
           raw_rec.unit_treated_report, raw_rec.applic_cnt, 
-          raw_rec.lbs_ai, raw_rec.ai_rate, raw_rec.prod_rate,
+          raw_rec.lbs_ai, v_prod_rate, v_ai_rate,
           raw_rec.lbs_ai_per_app, raw_rec.lbs_prod_per_app,
           v_fixed1, v_fixed2, v_fixed3, 
-          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
-          v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
+          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
+          v_comments, v_error_code, v_error_type, v_estimated_field, v_replace_type,
           v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+          v_max_label_prod);
 
       v_index := v_index + 1;
       IF v_index > 100 THEN
@@ -380,6 +407,7 @@ DECLARE
    v_mean10          VARCHAR2(1);
    v_mean12          VARCHAR2(1);
    v_outlier_limit   VARCHAR2(1);
+   v_max_label       VARCHAR2(1);
    v_comments        VARCHAR2(1000);
    v_estimated_field VARCHAR2(100);
    v_error_code      INTEGER;
@@ -395,6 +423,10 @@ DECLARE
    v_mean8sd_prod    NUMBER := NULL;
    v_mean10sd_prod   NUMBER := NULL;
    v_mean12sd_prod   NUMBER := NULL;
+   v_max_label_prod  NUMBER := NULL;
+
+   v_ai_rate         NUMBER;
+   v_prod_rate       NUMBER;
 
    v_index           INTEGER;
 
@@ -407,27 +439,30 @@ BEGIN
    v_index := 0;
    FOR raw_rec IN raw_cur LOOP
       Outliers_test(raw_rec.record_id, raw_rec.prodno, raw_rec.site_code, raw_rec.lbs_prd_used, 
-                    raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, raw_rec.applic_cnt, 
+                    raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, 
+                    raw_rec.acre_planted, raw_rec.unit_planted, raw_rec.applic_cnt, 
                     v_fixed1, v_fixed2, v_fixed3, 
-                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
+                    v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
                     v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
                     v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+                    v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+                    v_max_label_prod, v_prod_rate, v_ai_rate);
 
       INSERT INTO Outliers_test_results VALUES
          (raw_rec.use_no, raw_rec.ago_ind, raw_rec.record_id, raw_rec.unit_treated, 
           raw_rec.regno_short, raw_rec.site_general, raw_rec.site_type, raw_rec.site_code, raw_rec.site_name,
           raw_rec.chem_code, raw_rec.chemname, raw_rec.prodchem_pct,
-          raw_rec.ai_rate_type, 
+          raw_rec.ai_rate_type, raw_rec.lbs_ai_app_type,
           raw_rec.prodno, raw_rec.lbs_prd_used, raw_rec.amt_prd_used, raw_rec.amt_treated, raw_rec.acre_treated, 
           raw_rec.unit_treated_report, raw_rec.applic_cnt, 
-          raw_rec.lbs_ai, raw_rec.ai_rate, raw_rec.prod_rate,
+          raw_rec.lbs_ai, v_prod_rate, v_ai_rate,
           raw_rec.lbs_ai_per_app, raw_rec.lbs_prod_per_app,
           v_fixed1, v_fixed2, v_fixed3, 
-          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_outlier_limit, 
-          v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
+          v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
+          v_comments, v_error_code, v_error_type, v_estimated_field, v_replace_type,
           v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod);
+          v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
+          v_max_label_prod);
 
       v_index := v_index + 1;
       IF v_index > 100 THEN
@@ -444,5 +479,16 @@ EXCEPTION
 END Outliers_test;
 /
 show errors
+
+/*
+
+SELECT   ago_ind, unit_treated, regno_short, site_general, 
+         count(*) num_recs, count(fixed2) num_fixed2,
+         count(mean5sd) num_mean5, count(mean8sd) num_mean8,
+         count(mean10sd) num_mean10, count(mean12sd) num_mean12,
+         count(max_label_prod) num_max_label
+FROM     Outliers_test_results
+GROUP BY ago_ind, unit_treated, regno_short, site_general
+ORDER BY ago_ind, unit_treated, regno_short, site_general;
 
 */
