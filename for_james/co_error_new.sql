@@ -1,4 +1,4 @@
-/* This code should replace the call to Check_value.Outliers() in
+/* This code should replace the call to Check_value_new.Outliers() in
 	file co_error.sql in the PUR loader program, which loads
 	data from from the counties through CalAgPermits and checks
 	the data for errors.
@@ -29,16 +29,41 @@
 	PMAP will recreate these 4 outlier statstics table every year with updated statistics.
 
 */
+CREATE OR REPLACE PACKAGE Co_error_new AS
+   v_loader_name     VARCHAR2(20) := 'LOADER 5';
 
-CREATE OR REPLACE PACKAGE BODY OPS$PURLOAD."CO_ERROR" AS
+   PROCEDURE Check_records(p_year IN NUMBER);
+
+   PROCEDURE Log_error
+      (p_year IN NUMBER,
+		 p_use_no IN NUMBER,
+		 p_error_code IN INTEGER,
+		 p_error_type IN VARCHAR2,
+       p_who IN VARCHAR2,
+		 p_comments IN VARCHAR2,
+		 p_error_id OUT INTEGER);
+
+   PROCEDURE Log_change
+      (p_year IN NUMBER,
+		 p_use_no IN NUMBER,
+		 p_field_name IN VARCHAR2,
+		 p_old_value IN VARCHAR2,
+		 p_new_value IN VARCHAR2,
+		 p_replace_type IN VARCHAR2,
+       p_who IN VARCHAR2,
+		 p_comments IN VARCHAR2,
+		 p_error_id IN INTEGER);
+
+END Co_error_new;
+/
+show errors
+
+--CREATE OR REPLACE PACKAGE BODY OPS$PURLOAD."CO_ERROR" AS
+CREATE OR REPLACE PACKAGE BODY Co_error_new AS
 
    PROCEDURE Check_records(p_year IN NUMBER)
    AS
       v_use_no               NUMBER(8);
-      v_error_code           BINARY_INTEGER := 0;
-      v_error_type           VARCHAR2(20);
-      v_replace_type         VARCHAR2(20);
-      v_require_type         VARCHAR2(20);
 
       v_record_id            VARCHAR2(1);
       v_batch_no             NUMBER(4);
@@ -98,12 +123,6 @@ CREATE OR REPLACE PACKAGE BODY OPS$PURLOAD."CO_ERROR" AS
 
       v_applic_cnt           NUMBER(6);
 
-      v_estimated_field      VARCHAR2(20);
-      v_estimated_date       DATE;
-
-      v_use_no_array         Check_value.use_no_array_type;
-      v_applic_time_array    Check_value.applic_time_array_type;
-      v_error_duplicate      BOOLEAN;
 
       v_reg_num_parts        INTEGER;
       v_one_reg_no           BOOLEAN;
@@ -113,8 +132,13 @@ CREATE OR REPLACE PACKAGE BODY OPS$PURLOAD."CO_ERROR" AS
       v_valid_reg_date       BOOLEAN;
       v_item                 INTEGER;
 
-      v_error_id             INTEGER;
       v_comments             VARCHAR2(2000);
+      v_estimated_field      VARCHAR2(20);
+      v_estimated_date       DATE;
+      v_error_code           INTEGER := 0;
+      v_error_type           VARCHAR2(20);
+      v_replace_type         VARCHAR2(20);
+      v_error_id             INTEGER;
 
       v_get_sequence_stmt    VARCHAR2(2000);
 
@@ -140,40 +164,90 @@ CREATE OR REPLACE PACKAGE BODY OPS$PURLOAD."CO_ERROR" AS
 		v_mean10sd_lbsapp_outlier	VARCHAR2(1);
 		v_mean12sd_lbsapp_outlier	VARCHAR2(1);
 
+      /*
       CURSOR record_cur IS
       SELECT    *
       FROM         raw_i
       FOR UPDATE OF year, use_no
       NOWAIT;
+      */
+
+      /* ***********************
+       For batch PUR processing use:
+      */
+      CURSOR record_cur IS
+         SELECT    *
+         FROM      ai_raw_rates_test;
+
+      /*******************************************************************************************
+       * Remove this cursor, which is not needed in the the version of co_error.sql.
+		CURSOR ai_cur(p_prodno IN NUMBER) IS
+			SELECT	chem_code, prodchem_pct
+			FROM		prod_chem
+			WHERE		prodno = p_prodno AND
+						chem_code > 0
+			ORDER BY prodchem_pct DESC;
+       ********************************************************************************************/
 
    BEGIN
       FOR raw_rec IN record_cur LOOP
+         v_acre_planted := raw_rec.acre_planted;
+         v_aer_gnd_ind := raw_rec.aer_gnd_ind;
+         v_applic_cnt := raw_rec.applic_cnt;
+         v_applic_dt := raw_rec.applic_dt;
+         v_county_cd := raw_rec.county_cd;
+         v_license_no := raw_rec.license_no;
+         v_prodno := raw_rec.prodno;
+         v_record_id := raw_rec.record_id;
+         v_site_code := raw_rec.site_code;
+         v_site_loc_id := raw_rec.site_loc_id;
+         v_unit_of_meas := raw_rec.unit_of_meas;
+         v_unit_planted := raw_rec.unit_planted;
+         v_use_no := raw_rec.use_no;
 
-         Check_value.outliers
+         v_unit_treated := raw_rec.unit_treated_report;
+         v_acre_treated := raw_rec.acre_treated;
+         v_lbs_prd_used := raw_rec.lbs_prd_used;
+         v_amt_prd_used := raw_rec.amt_prd_used;
+
+         v_unit_treated_old := v_unit_treated;
+         v_acre_treated_old := v_acre_treated;
+         v_lbs_prd_used_old := v_lbs_prd_used;
+         v_amt_prd_used_old := v_amt_prd_used;
+   		/*******************************************************************************************
+   		 * Start of section to replace previous code in co_error.sql.
+   		 ********************************************************************************************/
+         Check_value_new.outliers
           (v_record_id, v_prodno, v_site_code,
            v_lbs_prd_used, v_amt_prd_used, v_acre_treated, v_unit_treated,
            v_acre_planted, v_unit_planted, v_applic_cnt,
-           v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
+           v_fixed1_rate_outlier, v_fixed2_rate_outlier, v_fixed3_rate_outlier,
+           v_mean5sd_rate_outlier, v_mean7sd_rate_outlier, v_mean8sd_rate_outlier,
+           v_mean10sd_rate_outlier, v_mean12sd_rate_outlier, 
+           p_max_label_outlier, p_limit_rate_outlier,
+           v_fixed1_lbsapp_outlier, v_fixed2_lbsapp_outlier, v_fixed3_lbsapp_outlier,
+           v_mean3sd_lbsapp_outlier, v_mean5sd_lbsapp_outlier, v_mean7sd_lbsapp_outlier,
+           v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier,
+           p_limit_lbsapp_outlier, 
+           v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
+
+         Check_value_new.outliers
+          (v_record_id, v_prodno, v_site_code,
+           v_lbs_prd_used, v_amt_prd_used, v_acre_treated, v_unit_treated,
+           v_acre_planted, v_unit_planted, v_applic_cnt,
            v_fixed1_rate_outlier, v_fixed2_rate_outlier, v_fixed3_rate_outlier,
            v_mean5sd_rate_outlier, v_mean7sd_rate_outlier, v_mean8sd_rate_outlier,
            v_mean10sd_rate_outlier, v_mean12sd_rate_outlier,
            v_fixed1_lbsapp_outlier, v_fixed2_lbsapp_outlier, v_fixed3_lbsapp_outlier,
            v_mean3sd_lbsapp_outlier, v_mean5sd_lbsapp_outlier, v_mean7sd_lbsapp_outlier,
-           v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier);
+           v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier,
+           v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
 
-         Outliers_test
-          (raw_rec.record_id, raw_rec.prodno, raw_rec.site_code, 
-           raw_rec.lbs_prd_used, raw_rec.amt_prd_used, raw_rec.acre_treated, raw_rec.unit_treated_report, 
-           raw_rec.acre_planted, raw_rec.unit_planted, raw_rec.applic_cnt, 
-           v_fixed1, v_fixed2, v_fixed3, 
-           v_mean5, v_mean7, v_mean8, v_mean10, v_mean12, v_max_label, v_outlier_limit, 
-           v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
-           v_median_prod, v_fixed1_prod, v_fixed2_prod, v_fixed3_prod,
-           v_mean5sd_prod, v_mean7sd_prod, v_mean8sd_prod, v_mean10sd_prod, v_mean12sd_prod, 
-           v_max_label_prod, v_prod_rate, v_ai_rate);
+    		/*******************************************************************************************
+   		 * End of section to replace previous code in co_error.sql.
+   		 ********************************************************************************************/
 
-
-         IF v_error_type != 'N' THEN
+        IF v_error_type != 'N' THEN
             IF v_replace_type != 'CORRECT' THEN
                Log_error
                   (p_year, v_use_no, v_error_code, v_error_type,
@@ -250,159 +324,124 @@ CREATE OR REPLACE PACKAGE BODY OPS$PURLOAD."CO_ERROR" AS
 
                END IF;
             END IF;
-
-            EXIT; -- This code loops through all AIs in a product, starting with AI with the
-                  -- highest percent. If we reached here, an outlier is found, so exit
-                  -- this PUR records and go to next record.
          END IF;
 
-		p_year := pur_rec.year;
-		v_use_no := pur_rec.use_no;
-		--DBMS_OUTPUT.PUT_LINE('________________________________________________');
-		--DBMS_OUTPUT.PUT_LINE('v_use_no = '||v_use_no);
+         INSERT INTO
+            pur_test(year, use_no, record_id, 
+                    county_cd, site_code, applic_dt, 
+                    site_loc_id, amt_prd_used, unit_of_meas,
+                    prodno, lbs_prd_used, acre_treated, unit_treated,
+                    acre_planted, unit_planted, applic_cnt,
+                    aer_gnd_ind, license_no)
+            VALUES(p_year, v_use_no, v_record_id, 
+                   v_county_cd, v_site_code, v_applic_dt, 
+                   trim(v_site_loc_id), v_amt_prd_used, v_unit_of_meas,
+                   v_prodno, v_lbs_prd_used, v_acre_treated, v_unit_treated,
+                   v_acre_planted, v_unit_planted, v_applic_cnt,
+                   v_aer_gnd_ind, trim(v_license_no));
+         COMMIT;
+      END LOOP;
 
-		v_record_id := pur_rec.record_id;
-		v_site_code := pur_rec.site_code;
-		v_prodno := pur_rec.prodno;
-		v_amt_prd_used := pur_rec.amt_prd_used;
-		v_lbs_prd_used := pur_rec.lbs_prd_used;
-		v_acre_treated := pur_rec.acre_treated;
-		v_unit_treated := pur_rec.unit_treated;
-		v_acre_planted := pur_rec.acre_planted;
-		v_unit_planted := pur_rec.unit_planted;
-		v_applic_cnt := pur_rec.applic_cnt;
+   EXCEPTION
+      WHEN OTHERS THEN
+         Other_exceptions(v_use_no, v_error_code);
+         --General_exceptions;
+   END Check_records;
 
-		v_amt_prd_used_old := v_amt_prd_used;
-		v_lbs_prd_used_old := v_lbs_prd_used;
-		v_acre_treated_old := v_acre_treated;
-		v_unit_treated_old := v_unit_treated;
 
-		/*******************************************************************************************
-		 * Start of section to replace previous code in co_error.sql.
-		 ********************************************************************************************/
-		/* Put these declarations in the DECLARE section:
-		v_fixed1_rate_outlier		VARCHAR2(1);
-		v_fixed2_rate_outlier		VARCHAR2(1);
-		v_fixed3_rate_outlier		VARCHAR2(1);
-		v_mean5sd_rate_outlier		VARCHAR2(1);
-		v_mean7sd_rate_outlier		VARCHAR2(1);
-		v_mean8sd_rate_outlier		VARCHAR2(1);
-		v_mean10sd_rate_outlier		VARCHAR2(1);
-		v_mean12sd_rate_outlier		VARCHAR2(1);
+   /* Record information in the errors and/or changes table.
+    */
+   PROCEDURE Log_error
+      (p_year IN NUMBER,
+       p_use_no IN NUMBER,
+       p_error_code IN INTEGER,
+       p_error_type IN VARCHAR2,
+       p_who IN VARCHAR2,
+       p_comments IN VARCHAR2,
+       p_error_id OUT INTEGER)
+   AS
+      v_get_errors_seq_stmt     VARCHAR2(500);
 
-		v_fixed1_lbsapp_outlier		VARCHAR2(1);
-		v_fixed2_lbsapp_outlier		VARCHAR2(1);
-		v_fixed3_lbsapp_outlier		VARCHAR2(1);
-		v_mean3sd_lbsapp_outlier	VARCHAR2(1);
-		v_mean5sd_lbsapp_outlier	VARCHAR2(1);
-		v_mean7sd_lbsapp_outlier	VARCHAR2(1);
-		v_mean8sd_lbsapp_outlier	VARCHAR2(1);
-		v_mean10sd_lbsapp_outlier	VARCHAR2(1);
-		v_mean12sd_lbsapp_outlier	VARCHAR2(1);
+   BEGIN
+      /*************************
+         For normal PUR processing use:  errors_i
+         For batch PUR processing use:  errors.
+      */
 
-		CURSOR ai_cur(p_prodno IN NUMBER) IS
-			SELECT	chem_code, prodchem_pct
-			FROM		prod_chem
-			WHERE		prodno = p_prodno AND
-						chem_code > 0
-			ORDER BY prodchem_pct DESC;
-		*/
+      /*
+      v_get_errors_seq_stmt :=
+         'BEGIN SELECT errors_seq_' || p_year || '.NextVal INTO :b_errors_seq FROM dual; END;';
+      */
+      v_get_errors_seq_stmt :=
+         'BEGIN SELECT errors_seq_test_' || p_year || '.NextVal INTO :b_errors_seq FROM dual; END;';
 
-      Check_value_outliers_new
-       (p_year, v_use_no, v_record_id, v_prodno, ai_rec.chem_code,
-        ai_rec.prodchem_pct, v_site_code,
-        v_amt_prd_used, v_lbs_prd_used, v_acre_treated, v_unit_treated,
-        v_acre_planted, v_unit_planted, v_applic_cnt,
-        v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type,
-        v_fixed1_rate_outlier, v_fixed2_rate_outlier, v_fixed3_rate_outlier,
-        v_mean5sd_rate_outlier, v_mean7sd_rate_outlier, v_mean8sd_rate_outlier,
-        v_mean10sd_rate_outlier, v_mean12sd_rate_outlier,
-        v_fixed1_lbsapp_outlier, v_fixed2_lbsapp_outlier, v_fixed3_lbsapp_outlier,
-        v_mean3sd_lbsapp_outlier, v_mean5sd_lbsapp_outlier, v_mean7sd_lbsapp_outlier,
-        v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier);
+      EXECUTE IMMEDIATE v_get_errors_seq_stmt USING OUT p_error_id;
 
-      IF v_error_type != 'N' THEN
-         IF v_replace_type != 'CORRECT' THEN
-            Log_error
-               (p_year, v_use_no, v_error_code, v_error_type,
-                v_loader_name, v_comments, v_error_id);
+      INSERT INTO errors_i
+         (error_id, error_code, year, use_no, error_type,
+          who, found_date, comments)
+      VALUES
+         (p_error_id, p_error_code, p_year, p_use_no, p_error_type,
+          p_who, SYSDATE, p_comments);
 
-            /* If outlier record exists for this record then
-               update outlier table with this outlier;
-               if no outlier record exists,
-               insert record.
-             */
-            SELECT	COUNT(*)
-            INTO		v_outlier_exits
-            FROM		outliers_new
-            WHERE		year = p_year AND
-                     use_no = v_use_no;
+      COMMIT;
 
-            IF v_outlier_exits > 0 THEN
-               UPDATE outliers_new
-                 SET fixed1_rate_outlier = v_fixed1_rate_outlier,
-                     fixed2_rate_outlier = v_fixed2_rate_outlier,
-                     fixed3_rate_outlier = v_fixed3_rate_outlier,
-                     mean5sd_rate_outlier = v_mean5sd_rate_outlier,
-                     mean7sd_rate_outlier = v_mean7sd_rate_outlier,
-                     mean8sd_rate_outlier = v_mean8sd_rate_outlier,
-                     mean10sd_rate_outlier = v_mean10sd_rate_outlier,
-                     mean12sd_rate_outlier = v_mean12sd_rate_outlier,
-                     fixed1_lbsapp_outlier = v_fixed1_lbsapp_outlier,
-                     fixed2_lbsapp_outlier = v_fixed2_lbsapp_outlier,
-                     fixed3_lbsapp_outlier = v_fixed3_lbsapp_outlier,
-                     mean3sd_lbsapp_outlier = v_mean3sd_lbsapp_outlier,
-                     mean5sd_lbsapp_outlier = v_mean5sd_lbsapp_outlier,
-                     mean7sd_lbsapp_outlier = v_mean7sd_lbsapp_outlier,
-                     mean8sd_lbsapp_outlier = v_mean8sd_lbsapp_outlier,
-                     mean10sd_lbsapp_outlier = v_mean10sd_lbsapp_outlier,
-                     mean12sd_lbsapp_outlier = v_mean12sd_lbsapp_outlier
-                  WHERE	year = p_year AND use_no = v_use_no;
-            ELSE
-               INSERT INTO outliers_new
-               VALUES
-                  (p_year, v_use_no,
-                   v_fixed1_rate_outlier, v_fixed2_rate_outlier, v_fixed3_rate_outlier,
-                   v_mean5sd_rate_outlier, v_mean7sd_rate_outlier, v_mean8sd_rate_outlier,
-                   v_mean10sd_rate_outlier, v_mean12sd_rate_outlier,
-                   v_fixed1_lbsapp_outlier, v_fixed2_lbsapp_outlier, v_fixed3_lbsapp_outlier,
-                   v_mean3sd_lbsapp_outlier, v_mean5sd_lbsapp_outlier, v_mean7sd_lbsapp_outlier,
-                   v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier);
-            END IF;
-            COMMIT;
-         END IF;
+   EXCEPTION
+      WHEN OTHERS THEN
+         Other_exceptions(p_use_no, p_error_code);
+   END Log_error;
 
-         IF v_replace_type != 'SAME' THEN
-            IF v_estimated_field = 'UNIT_TREATED' THEN
-               Log_change
-                  (p_year, v_use_no,
-                   'UNIT_TREATED', v_unit_treated_old, v_unit_treated, v_replace_type,
-                   v_loader_name, NULL, v_error_id);
 
-            ELSIF v_estimated_field = 'ACRE_TREATED' THEN
-               Log_change
-                  (p_year, v_use_no,
-                   'ACRE_TREATED', v_acre_treated_old, v_acre_treated, v_replace_type,
-                   v_loader_name, NULL, v_error_id);
+   /* Record information in the errors and/or changes table.
+    */
+   PROCEDURE Log_change
+      (p_year IN NUMBER,
+       p_use_no IN NUMBER,
+       p_field_name IN VARCHAR2,
+       p_old_value IN VARCHAR2,
+       p_new_value IN VARCHAR2,
+       p_replace_type IN VARCHAR2,
+       p_who IN VARCHAR2,
+       p_comments IN VARCHAR2,
+       p_error_id IN INTEGER)
+   AS
+      v_get_changes_seq_stmt  VARCHAR2(500);
+        v_change_id                    INTEGER;
+   BEGIN
+      /*************************
+       For normal PUR processing use:  changes_i
+       For batch PUR processing use:  changes.
+       */
+      /*
+      v_get_changes_seq_stmt :=
+         'BEGIN SELECT changes_seq_' || p_year ||
+         '.NextVal INTO :b_changes_seq FROM dual; END;';
+      */
 
-            ELSIF v_estimated_field = 'LBS_PRD_USED' THEN
-               Log_change
-                  (p_year, v_use_no,
-                   'LBS_PRD_USED', v_lbs_prd_used_old, v_lbs_prd_used, v_replace_type,
-                   v_loader_name, NULL, v_error_id);
+      v_get_changes_seq_stmt :=
+         'BEGIN SELECT changes_seq_test_' || p_year ||
+         '.NextVal INTO :b_changes_seq FROM dual; END;';
 
-               Log_change
-                  (p_year, v_use_no,
-                   'AMT_PRD_USED', v_amt_prd_used_old, v_amt_prd_used,v_replace_type,
-                   v_loader_name, NULL, v_error_id);
+      EXECUTE IMMEDIATE v_get_changes_seq_stmt USING OUT v_change_id;
 
-            END IF;
-			END IF;
-		END LOOP;
-		/*******************************************************************************************
-		 * End of section to replace previous code in co_error.sql.
-		 ********************************************************************************************/
+      INSERT INTO changes_i
+         (change_id, year, use_no,
+          field_name, old_value, new_value,
+          action_taken, action_date, who, error_id,
+          county_validated, comments)
+      VALUES
+         (v_change_id, p_year, p_use_no,
+          p_field_name, p_old_value, p_new_value,
+          p_replace_type, SYSDATE, p_who, p_error_id,
+          'N', p_comments);
+      --COMMIT;
 
-END Co_error;
+   EXCEPTION
+      WHEN OTHERS THEN
+         Other_exceptions(p_use_no, p_error_id);
+   END Log_change;
+
+
+END Co_error_new;
 /
-
+show errors

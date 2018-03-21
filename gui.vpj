@@ -36,6 +36,7 @@
             <F N="sql_py/outlier_procedure.sql"/>
             <F N="sql_py/outlier_procedure_old.sql"/>
             <F N="sql_py/print_line.sql"/>
+            <F N="old/run_outliers_new.sql"/>
             <F N="t1.sql"/>
             <F N="../sql_py/t2.sql"/>
             <F N="sql_py/t3.sql"/>

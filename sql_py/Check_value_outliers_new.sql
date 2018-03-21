@@ -12,9 +12,7 @@ SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 /* A test version of this script is in cvo_test.sql
  */
 CREATE OR REPLACE PROCEDURE Check_value_outliers_new
-   (--p_year IN NUMBER,
-    --p_use_no IN NUMBER,
-    p_record_id VARCHAR2,
+   (p_record_id VARCHAR2,
     p_prodno IN NUMBER,
     p_site_code IN NUMBER,
 
@@ -40,6 +38,7 @@ CREATE OR REPLACE PROCEDURE Check_value_outliers_new
     p_fixed1_lbsapp_outlier OUT VARCHAR2,
     p_fixed2_lbsapp_outlier OUT VARCHAR2,
     p_fixed3_lbsapp_outlier OUT VARCHAR2,
+    p_mean3sd_lbsapp_outlier OUT VARCHAR2,
     p_mean5sd_lbsapp_outlier OUT VARCHAR2,
     p_mean7sd_lbsapp_outlier OUT VARCHAR2,
     p_mean8sd_lbsapp_outlier OUT VARCHAR2,
@@ -85,6 +84,7 @@ IS
 
    v_prod_rate                NUMBER;
    v_ai_rate                  NUMBER;
+   v_max_label_prod           NUMBER;
 
    v_ai_rate_ch            VARCHAR2(100);
    v_prod_rate_ch          VARCHAR2(100);
@@ -214,7 +214,7 @@ BEGIN
                      WHEN 'T' THEN max_rate*2000
                      ELSE max_rate
                   END * 1.1
-         INTO     p_max_label_prod
+         INTO     v_max_label_prod
          FROM     max_label_rates
          WHERE    prodno = p_prodno AND
                   unit_treated = 
@@ -226,10 +226,10 @@ BEGIN
                      END;
       EXCEPTION
          WHEN OTHERS THEN
-            p_max_label_prod := NULL;
+            v_max_label_prod := NULL;
       END;
 
-      --DBMS_OUTPUT.PUT_LINE('p_max_label_prod = '||p_max_label_prod);
+      --DBMS_OUTPUT.PUT_LINE('v_max_label_prod = '||v_max_label_prod);
 
 
       /**************************************************************
@@ -248,21 +248,21 @@ BEGIN
       COALESCE() returns the first non-null expression in the list.
       */
       IF v_has_outlier_limits THEN
-         v_fixed1_prod := COALESCE(GREATEST(v_fixed1_prod, p_max_label_prod), v_fixed1_prod, p_max_label_prod);
-         v_fixed2_prod := COALESCE(GREATEST(v_fixed2_prod, p_max_label_prod), v_fixed2_prod, p_max_label_prod);
-         v_fixed3_prod := COALESCE(GREATEST(v_fixed3_prod, p_max_label_prod), v_fixed3_prod, p_max_label_prod);
-         v_mean5sd_prod := COALESCE(GREATEST(v_mean5sd_prod, p_max_label_prod), v_mean5sd_prod, p_max_label_prod);
-         v_mean7sd_prod := COALESCE(GREATEST(v_mean7sd_prod, p_max_label_prod), v_mean7sd_prod, p_max_label_prod);
-         v_mean8sd_prod := COALESCE(GREATEST(v_mean8sd_prod, p_max_label_prod), v_mean8sd_prod, p_max_label_prod);
-         v_mean10sd_prod := COALESCE(GREATEST(v_mean10sd_prod, p_max_label_prod), v_mean10sd_prod, p_max_label_prod);
-         v_mean12sd_prod := COALESCE(GREATEST(v_mean12sd_prod, p_max_label_prod), v_mean12sd_prod, p_max_label_prod);
+         v_fixed1_prod := COALESCE(GREATEST(v_fixed1_prod, v_max_label_prod), v_fixed1_prod, v_max_label_prod);
+         v_fixed2_prod := COALESCE(GREATEST(v_fixed2_prod, v_max_label_prod), v_fixed2_prod, v_max_label_prod);
+         v_fixed3_prod := COALESCE(GREATEST(v_fixed3_prod, v_max_label_prod), v_fixed3_prod, v_max_label_prod);
+         v_mean5sd_prod := COALESCE(GREATEST(v_mean5sd_prod, v_max_label_prod), v_mean5sd_prod, v_max_label_prod);
+         v_mean7sd_prod := COALESCE(GREATEST(v_mean7sd_prod, v_max_label_prod), v_mean7sd_prod, v_max_label_prod);
+         v_mean8sd_prod := COALESCE(GREATEST(v_mean8sd_prod, v_max_label_prod), v_mean8sd_prod, v_max_label_prod);
+         v_mean10sd_prod := COALESCE(GREATEST(v_mean10sd_prod, v_max_label_prod), v_mean10sd_prod, v_max_label_prod);
+         v_mean12sd_prod := COALESCE(GREATEST(v_mean12sd_prod, v_max_label_prod), v_mean12sd_prod, v_max_label_prod);
 
       END IF;
 
       /* Determine if this rate is an outlier by each criterion.
        */
       IF v_prod_rate > 0 AND
-         ((v_prod_rate > p_max_label_prod AND p_max_label_prod IS NOT NULL) OR
+         ((v_prod_rate > v_max_label_prod AND v_max_label_prod IS NOT NULL) OR
           (v_prod_rate > v_fixed1_prod AND v_fixed1_prod IS NOT NULL) OR
           (v_prod_rate > v_fixed2_prod AND v_fixed2_prod IS NOT NULL) OR
           (v_prod_rate > v_fixed3_prod AND v_fixed3_prod IS NOT NULL) OR
@@ -353,21 +353,21 @@ BEGIN
 
          /* Get maximum label rate
           */
-         IF p_max_label_prod >= 100 THEN
-            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM9,999,999,999');
-         ELSIF p_max_label_prod >= 1.0 THEN
-            v_max_label_ch := CASE WHEN REMAINDER(p_max_label_prod, 1) = 0 THEN TO_CHAR(p_max_label_prod, 'FM9,999') ELSE TO_CHAR(p_max_label_prod, 'FM9,999.99') END;
-            --v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM9,999.99');
-         ELSIF p_max_label_prod >= 0.1 THEN
-            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.99');
-         ELSIF p_max_label_prod >= 0.01 THEN
-            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.999');
-         ELSIF p_max_label_prod >= 0.001 THEN
-            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.9999');
-         ELSIF p_max_label_prod >= 0.0001 THEN
-            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.99999');
+         IF v_max_label_prod >= 100 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM9,999,999,999');
+         ELSIF v_max_label_prod >= 1.0 THEN
+            v_max_label_ch := CASE WHEN REMAINDER(v_max_label_prod, 1) = 0 THEN TO_CHAR(v_max_label_prod, 'FM9,999') ELSE TO_CHAR(v_max_label_prod, 'FM9,999.99') END;
+            --v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM9,999.99');
+         ELSIF v_max_label_prod >= 0.1 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.99');
+         ELSIF v_max_label_prod >= 0.01 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.999');
+         ELSIF v_max_label_prod >= 0.001 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.9999');
+         ELSIF v_max_label_prod >= 0.0001 THEN
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.99999');
          ELSE
-            v_max_label_ch := TO_CHAR(p_max_label_prod, 'FM0.999999');
+            v_max_label_ch := TO_CHAR(v_max_label_prod, 'FM0.999999');
          END IF;
 
          /* Get acre treated
@@ -458,7 +458,7 @@ BEGIN
                'median rate of use is unknown';
          END IF;         
 
-         IF p_max_label_prod > 0 THEN
+         IF v_max_label_prod > 0 THEN
             p_comments := p_comments||
                '; maximum label rate = '||v_max_label_ch||' pounds product per '||v_unit_treated_word;
          END IF;
@@ -513,7 +513,7 @@ BEGIN
             p_comments := p_comments||'; rate > mean + 5*SD';
          END IF;
 
-         IF v_prod_rate > p_max_label_prod AND p_max_label_prod > 0 THEN
+         IF v_prod_rate > v_max_label_prod AND v_max_label_prod > 0 THEN
             p_max_label_outlier := 'X';
             p_comments := p_comments||'; rate > maximum label rate';
          END IF;
