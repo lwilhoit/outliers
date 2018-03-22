@@ -760,6 +760,43 @@ BEGIN
             v_median_ai_ch := TO_CHAR(v_median_ai, 'FM0.9999999');
          END IF;
 
+         /* Get lbs_prd_used
+          */
+         IF p_lbs_prd_used >= 100 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM9,999,999,999');
+         ELSIF p_lbs_prd_used >= 1.0 THEN
+            v_lbs_prd_used_orig_ch := CASE WHEN REMAINDER(p_lbs_prd_used, 1) = 0 THEN TO_CHAR(p_lbs_prd_used, 'FM9,999') ELSE TO_CHAR(p_lbs_prd_used, 'FM9,999.99') END;
+         ELSIF p_lbs_prd_used >= 0.1 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99');
+         ELSIF p_lbs_prd_used >= 0.01 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999');
+         ELSIF p_lbs_prd_used >= 0.001 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.9999');
+         ELSIF p_lbs_prd_used >= 0.0001 THEN
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99999');
+         ELSE
+            v_lbs_prd_used_orig_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999999');
+         END IF;
+
+         /* Get amt_prd_used
+          */
+         IF p_amt_prd_used >= 100 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM9,999,999,999');
+         ELSIF p_amt_prd_used >= 1.0 THEN
+            v_amt_prd_used_orig_ch := CASE WHEN REMAINDER(p_amt_prd_used, 1) = 0 THEN TO_CHAR(p_amt_prd_used, 'FM9,999') ELSE TO_CHAR(p_amt_prd_used, 'FM9,999.99') END;
+         ELSIF p_amt_prd_used >= 0.1 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.99');
+         ELSIF p_amt_prd_used >= 0.01 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.999');
+         ELSIF p_amt_prd_used >= 0.001 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.9999');
+         ELSIF p_amt_prd_used >= 0.0001 THEN
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.99999');
+         ELSE
+            v_amt_prd_used_orig_ch := TO_CHAR(p_amt_prd_used, 'FM0.999999');
+         END IF;
+
+
          /* Construct the comment.
           */
          IF v_ai_rate IS NOT NULL THEN
@@ -836,8 +873,40 @@ BEGIN
          
             IF p_replace_type = 'ESTIMATE' THEN
                p_estimated_field := 'LBS_PRD_USED';
+
+                  IF p_lbs_prd_used >= 100 THEN
+                     v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM9,999,999,999');
+                  ELSIF p_lbs_prd_used >= 1.0 THEN
+                     v_lbs_prd_used_ch := CASE WHEN REMAINDER(p_lbs_prd_used, 1) = 0 THEN TO_CHAR(p_lbs_prd_used, 'FM9,999') ELSE TO_CHAR(p_lbs_prd_used, 'FM9,999.99') END;
+                  ELSIF p_lbs_prd_used >= 0.1 THEN
+                     v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99');
+                  ELSIF p_lbs_prd_used >= 0.01 THEN
+                     v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999');
+                  ELSIF p_lbs_prd_used >= 0.001 THEN
+                     v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.9999');
+                  ELSIF p_lbs_prd_used >= 0.0001 THEN
+                     v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.99999');
+                  ELSE
+                     v_lbs_prd_used_ch := TO_CHAR(p_lbs_prd_used, 'FM0.999999');
+                  END IF;
+
+                  IF p_amt_prd_used >= 100 THEN
+                     v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM9,999,999,999');
+                  ELSIF p_amt_prd_used >= 1.0 THEN
+                     v_amt_prd_used_ch := CASE WHEN REMAINDER(p_amt_prd_used, 1) = 0 THEN TO_CHAR(p_amt_prd_used, 'FM9,999') ELSE TO_CHAR(p_amt_prd_used, 'FM9,999.99') END;
+                  ELSIF p_amt_prd_used >= 0.1 THEN
+                     v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.99');
+                  ELSIF p_amt_prd_used >= 0.01 THEN
+                     v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.999');
+                  ELSIF p_amt_prd_used >= 0.001 THEN
+                     v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.9999');
+                  ELSIF p_amt_prd_used >= 0.0001 THEN
+                     v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.99999');
+                  ELSE
+                     v_amt_prd_used_ch := TO_CHAR(p_amt_prd_used, 'FM0.999999');
+                  END IF;
                p_comments := p_comments||'; the values for lbs_prd_used and amt_prd_used were estimated as '||
-                                       p_lbs_prd_used ||' and '||p_amt_prd_used;
+                                          v_lbs_prd_used_ch ||' and '||v_amt_prd_used_ch||' (originally '||v_lbs_prd_used_orig_ch||' and '||v_amt_prd_used_orig_ch||')';
             END IF;
             -- DBMS_OUTPUT.PUT_LINE('3 (after wrong_lbs): p_amt_prd_used = '||p_amt_prd_used||'; error_type = '||p_error_type);
             

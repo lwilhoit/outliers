@@ -153,6 +153,8 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
 		v_mean8sd_rate_outlier		VARCHAR2(1);
 		v_mean10sd_rate_outlier		VARCHAR2(1);
 		v_mean12sd_rate_outlier		VARCHAR2(1);
+      v_max_label_outlier        VARCHAR2(1);
+      v_limit_rate_outlier       VARCHAR2(1);
 
 		v_fixed1_lbsapp_outlier		VARCHAR2(1);
 		v_fixed2_lbsapp_outlier		VARCHAR2(1);
@@ -163,6 +165,7 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
 		v_mean8sd_lbsapp_outlier	VARCHAR2(1);
 		v_mean10sd_lbsapp_outlier	VARCHAR2(1);
 		v_mean12sd_lbsapp_outlier	VARCHAR2(1);
+      v_limit_lbsapp_outlier     VARCHAR2(1);
 
       /*
       CURSOR record_cur IS
@@ -177,8 +180,15 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
       */
       CURSOR record_cur IS
          SELECT    *
-         FROM      ai_raw_rates_test;
+         FROM     ai_raw_rates
+         WHERE    year = 2016 AND
+                  use_no < 1000000;
 
+      /*
+      CURSOR record_cur IS
+         SELECT    *
+         FROM      ai_raw_rates_test;
+      */
       /*******************************************************************************************
        * Remove this cursor, which is not needed in the the version of co_error.sql.
 		CURSOR ai_cur(p_prodno IN NUMBER) IS
@@ -224,31 +234,22 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
            v_fixed1_rate_outlier, v_fixed2_rate_outlier, v_fixed3_rate_outlier,
            v_mean5sd_rate_outlier, v_mean7sd_rate_outlier, v_mean8sd_rate_outlier,
            v_mean10sd_rate_outlier, v_mean12sd_rate_outlier, 
-           p_max_label_outlier, p_limit_rate_outlier,
+           v_max_label_outlier, v_limit_rate_outlier,
            v_fixed1_lbsapp_outlier, v_fixed2_lbsapp_outlier, v_fixed3_lbsapp_outlier,
            v_mean3sd_lbsapp_outlier, v_mean5sd_lbsapp_outlier, v_mean7sd_lbsapp_outlier,
            v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier,
-           p_limit_lbsapp_outlier, 
-           v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
-
-         Check_value_new.outliers
-          (v_record_id, v_prodno, v_site_code,
-           v_lbs_prd_used, v_amt_prd_used, v_acre_treated, v_unit_treated,
-           v_acre_planted, v_unit_planted, v_applic_cnt,
-           v_fixed1_rate_outlier, v_fixed2_rate_outlier, v_fixed3_rate_outlier,
-           v_mean5sd_rate_outlier, v_mean7sd_rate_outlier, v_mean8sd_rate_outlier,
-           v_mean10sd_rate_outlier, v_mean12sd_rate_outlier,
-           v_fixed1_lbsapp_outlier, v_fixed2_lbsapp_outlier, v_fixed3_lbsapp_outlier,
-           v_mean3sd_lbsapp_outlier, v_mean5sd_lbsapp_outlier, v_mean7sd_lbsapp_outlier,
-           v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier,
+           v_limit_lbsapp_outlier, 
            v_comments, v_estimated_field, v_error_code, v_error_type, v_replace_type);
 
     		/*******************************************************************************************
    		 * End of section to replace previous code in co_error.sql.
    		 ********************************************************************************************/
 
-        IF v_error_type != 'N' THEN
+         --DBMS_OUTPUT.PUT_LINE('v_error_type =  '||v_error_type||'; v_replace_type = '||v_replace_type);
+         IF v_error_type != 'N' THEN
             IF v_replace_type != 'CORRECT' THEN
+               --DBMS_OUTPUT.PUT_LINE('Call Log_error() with use_no '||v_use_no);
+
                Log_error
                   (p_year, v_use_no, v_error_code, v_error_type,
                    v_loader_name, v_comments, v_error_id);
@@ -274,6 +275,8 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
                         mean8sd_rate_outlier = v_mean8sd_rate_outlier,
                         mean10sd_rate_outlier = v_mean10sd_rate_outlier,
                         mean12sd_rate_outlier = v_mean12sd_rate_outlier,
+                        max_label_outlier = v_max_label_outlier,
+                        limit_rate_outlier = v_limit_rate_outlier,
                         fixed1_lbsapp_outlier = v_fixed1_lbsapp_outlier,
                         fixed2_lbsapp_outlier = v_fixed2_lbsapp_outlier,
                         fixed3_lbsapp_outlier = v_fixed3_lbsapp_outlier,
@@ -282,7 +285,8 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
                         mean7sd_lbsapp_outlier = v_mean7sd_lbsapp_outlier,
                         mean8sd_lbsapp_outlier = v_mean8sd_lbsapp_outlier,
                         mean10sd_lbsapp_outlier = v_mean10sd_lbsapp_outlier,
-                        mean12sd_lbsapp_outlier = v_mean12sd_lbsapp_outlier
+                        mean12sd_lbsapp_outlier = v_mean12sd_lbsapp_outlier,
+                        limit_lbsapp_outlier = v_limit_lbsapp_outlier
                      WHERE	year = p_year AND use_no = v_use_no;
                ELSE
                   INSERT INTO outliers_new
@@ -291,27 +295,32 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
                       v_fixed1_rate_outlier, v_fixed2_rate_outlier, v_fixed3_rate_outlier,
                       v_mean5sd_rate_outlier, v_mean7sd_rate_outlier, v_mean8sd_rate_outlier,
                       v_mean10sd_rate_outlier, v_mean12sd_rate_outlier,
+                      v_max_label_outlier, v_limit_rate_outlier,
                       v_fixed1_lbsapp_outlier, v_fixed2_lbsapp_outlier, v_fixed3_lbsapp_outlier,
                       v_mean3sd_lbsapp_outlier, v_mean5sd_lbsapp_outlier, v_mean7sd_lbsapp_outlier,
-                      v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier);
+                      v_mean8sd_lbsapp_outlier, v_mean10sd_lbsapp_outlier, v_mean12sd_lbsapp_outlier,
+                      v_limit_lbsapp_outlier);
                END IF;
                --COMMIT;
             END IF;
 
             IF v_replace_type != 'SAME' THEN
                IF v_estimated_field = 'UNIT_TREATED' THEN
+                  --DBMS_OUTPUT.PUT_LINE('Call Log_change() with use_no '||v_use_no);
                   Log_change
                      (p_year, v_use_no,
                       'UNIT_TREATED', v_unit_treated_old, v_unit_treated, v_replace_type,
                       v_loader_name, NULL, v_error_id);
 
                ELSIF v_estimated_field = 'ACRE_TREATED' THEN
+                  --DBMS_OUTPUT.PUT_LINE('Call Log_change() with use_no '||v_use_no);
                   Log_change
                      (p_year, v_use_no,
                       'ACRE_TREATED', v_acre_treated_old, v_acre_treated, v_replace_type,
                       v_loader_name, NULL, v_error_id);
 
                ELSIF v_estimated_field = 'LBS_PRD_USED' THEN
+                  --DBMS_OUTPUT.PUT_LINE('Call Log_change() with use_no '||v_use_no);
                   Log_change
                      (p_year, v_use_no,
                       'LBS_PRD_USED', v_lbs_prd_used_old, v_lbs_prd_used, v_replace_type,
@@ -344,7 +353,8 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
 
    EXCEPTION
       WHEN OTHERS THEN
-         Other_exceptions(v_use_no, v_error_code);
+         DBMS_OUTPUT.PUT_LINE(SQLERRM);
+         --Other_exceptions(v_use_no, v_error_code);
          --General_exceptions;
    END Check_records;
 
@@ -367,7 +377,7 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
          For normal PUR processing use:  errors_i
          For batch PUR processing use:  errors.
       */
-
+      --DBMS_OUTPUT.PUT_LINE('In Log_error() with use_no '||p_use_no);
       /*
       v_get_errors_seq_stmt :=
          'BEGIN SELECT errors_seq_' || p_year || '.NextVal INTO :b_errors_seq FROM dual; END;';
@@ -388,7 +398,8 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
 
    EXCEPTION
       WHEN OTHERS THEN
-         Other_exceptions(p_use_no, p_error_code);
+         DBMS_OUTPUT.PUT_LINE(SQLERRM);
+         -- Other_exceptions(p_use_no, p_error_code);
    END Log_error;
 
 
@@ -412,6 +423,7 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
        For normal PUR processing use:  changes_i
        For batch PUR processing use:  changes.
        */
+      --DBMS_OUTPUT.PUT_LINE('In Log_change() with use_no '||p_use_no);
       /*
       v_get_changes_seq_stmt :=
          'BEGIN SELECT changes_seq_' || p_year ||
@@ -438,7 +450,8 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
 
    EXCEPTION
       WHEN OTHERS THEN
-         Other_exceptions(p_use_no, p_error_id);
+         DBMS_OUTPUT.PUT_LINE(SQLERRM);
+         --Other_exceptions(p_use_no, p_error_id);
    END Log_change;
 
 
