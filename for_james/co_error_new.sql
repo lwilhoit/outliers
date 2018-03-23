@@ -182,9 +182,21 @@ CREATE OR REPLACE PACKAGE BODY Co_error_new AS
          SELECT    *
          FROM     ai_raw_rates
          WHERE    year = 2016 AND
-                  use_no < 1000000;
+                  use_no > 3000000;
 
       /*
+      CURSOR record_cur IS
+         SELECT    *
+         FROM     ai_raw_rates
+         WHERE    year = 2016 AND
+                  use_no < 1000000;
+
+      CURSOR record_cur IS
+         SELECT    *
+         FROM     ai_raw_rates
+         WHERE    year = 2016 AND
+                  use_no BETWEEN 1000001 AND 3000000;
+
       CURSOR record_cur IS
          SELECT    *
          FROM      ai_raw_rates_test;

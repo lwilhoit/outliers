@@ -112,7 +112,12 @@ INSERT INTO prodno_regno_short
 
 COMMIT;
 
-CREATE INDEX prodno_regno_short_ndx ON prodno_regno_short
+CREATE INDEX prodno_regno_short1_ndx ON prodno_regno_short
+	(regno_short)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
+
+CREATE INDEX prodno_regno_short2_ndx ON prodno_regno_short
 	(prodno)
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
@@ -231,19 +236,33 @@ DECLARE
    CURSOR oas_cur IS
       SELECT   regno_short, ago_ind, site_general, unit_treated
       FROM     outlier_all_stats_temp
-      ORDER BY regno_short, ago_ind, site_general, unit_treated;
+      ORDER BY regno_short, ago_ind, site_general, unit_treated
+      ;
 
+--   WHERE    regno_short = '100-1093'
+--   WHERE    regno_short = '100-1000' AND site_general = 'ANIMALS'
+/*
+   WHERE    regno_short = '67986-1' AND
+   ago_ind = 'A' AND
+   unit_treated = 'A' AND
+   site_general = 'CITRUS'
+*/
    CURSOR ai_cur(p_regno IN VARCHAR2) IS
       SELECT   DISTINCT chem_code, prodchem_pct, chemname
       FROM     prod_chem_major_ai left JOIN chemical using (chem_code)
                                   left JOIN prodno_regno_short using (prodno)
       WHERE    regno_short = p_regno;
      
+      --WHERE    prodno IN (SELECT prodno FROM product WHERE mfg_firmno||'-'||label_seq_no = p_regno);
 BEGIN
    v_index := 0;
    FOR oas_rec IN oas_cur LOOP
       --DBMS_OUTPUT.PUT_LINE('********************************');
       --DBMS_OUTPUT.PUT_LINE('v_index = '||v_index);
+      ----DBMS_OUTPUT.PUT_LINE('oas_rec.regno_short = '||oas_rec.regno_short);
+      ----DBMS_OUTPUT.PUT_LINE('oas_rec.unit_treated = '||oas_rec.unit_treated);
+      ----DBMS_OUTPUT.PUT_LINE('oas_rec.ago_ind = '||oas_rec.ago_ind);
+      ----DBMS_OUTPUT.PUT_LINE('oas_rec.site_general = '||oas_rec.site_general);
 
       IF oas_rec.ago_ind = 'N' THEN
          IF oas_rec.site_general = 'WATER_AREA' THEN
@@ -593,4 +612,33 @@ END;
 /
 show errors
 
+
+
+/* Examples of how to use this table:
+ */
+/*
+SELECT   *
+FROM     outlier_all_stats 
+WHERE    regno_short = '352-00729' AND
+         ago_ind = 'A' AND
+         unit_treated = 'A' AND
+         site_type = 
+            CASE WHEN record_id = 'C' THEN 
+               CASE WHEN site_code IN (SELECT site_code FROM site_type_table) THEN 'WATER' 
+                  ELSE 'OTHER' END
+               ELSE 'ALL'
+            END;
+
+SELECT   *
+FROM     outlier_all_stats 
+WHERE    prodno = 63665 AND
+         record_id = 'B' AND
+         unit_treated_report = 'S' AND
+         site_type = 
+            CASE WHEN record_id = 'C' THEN 
+               CASE WHEN site_code IN (SELECT site_code FROM site_type_table) THEN 'WATER' 
+                  ELSE 'OTHER' END
+               ELSE 'ALL'
+            END;
+*/
 

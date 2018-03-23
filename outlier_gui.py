@@ -458,6 +458,63 @@ def start_procedures():
                                        table_directory, ctl_directory, sql_directory, user_login)
                 # exec(open(sql_directory + "outlier_stats.py").read())
                 # execfile(sql_directory + "outlier_stats.py")
+
+            if run_regno_ago_table:
+                #################################################################################
+                # Create table REGNO_AGO_TABLE.
+                sql_file = 'create_regno_ago_table.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_prodno_regno_short:
+                #################################################################################
+                # Create table PRODNO_REGNO_SHORT.
+                sql_file = 'create_prodno_regno_short.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_site_general_table:
+                #################################################################################
+                # Create table SITE_GENERAL_TABLE.
+                sql_file = 'create_site_general_table.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_unit_treated_table:
+                #################################################################################
+                # Create table UNIT_TREATED_TABLE.
+                sql_file = 'create_unit_treated_table.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_outlier_final_stats:
+                #################################################################################
+                # Create table OUTLIER_FINAL_STATS.
+                sql_file = 'create_outlier_final_stats.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_outlier_all_stats_temp:
+                #################################################################################
+                # Create table OUTLIER_ALL_STATS_TEMP.
+                sql_file = 'create_outlier_all_stats_temp.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_outlier_all_stats:
+                #################################################################################
+                # Create table OUTLIER_ALL_STATS.
+                sql_file = 'create_outlier_all_stats.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+
+#           if run_stats_nonag_tables:
+#               #################################################################################
+#               # Create empty tables AI_GROUP_STATS_NONAG and AI_OUTLIER_STATS_NONAG.
+#               sql_file = 'create_ai_groups_ai_outlier_stats_nonag.sql'
+#               call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, num_days_old2, num_days_old3, log_level, comment1, comment2)
+#
+#           if run_outlier_stats_nonag:
+#               #################################################################################
+#               # Add data to tables AI_GROUP_STATS_NONAG and AI_OUTLIER_STATS_NONAG.
+#               outs.get_outlier_stats_nonag(stat_year, load_oracle, replace_oracle_tables, append_oracle_tables, update_pur_rates, \
+#                                      table_directory, ctl_directory, sql_directory, user_login)
+#               # exec(open(sql_directory + "outlier_stats_nonag.py").read())
+#               # execfile(sql_directory + "outlier_stats_nonag.py")
         else:
             logging.debug("Outliers not run")
 

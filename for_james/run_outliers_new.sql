@@ -9,6 +9,7 @@ SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 
+/*
 DROP SEQUENCE errors_seq_test_2016;
 DROP SEQUENCE changes_seq_test_2016;
 CREATE SEQUENCE errors_seq_test_2016 increment by 1 start with 1;
@@ -110,6 +111,103 @@ pctfree 0
 storage (initial 5M next 2M pctincrease 0)
 nologging
 tablespace pur;
+
+*/
+/*
+CREATE TABLE prod_raw_rates
+   (year                     NUMBER(4),
+    use_no                  INTEGER,
+    record_id              VARCHAR2(1),
+    ago_ind                 VARCHAR2(1),
+    prodno                    NUMBER(7),
+    regno_short            VARCHAR2(20),
+    prod_adjuvant            VARCHAR2(1),
+    site_type               VARCHAR2(20),
+    site_code              NUMBER(6),
+    site_name               VARCHAR2(50),
+    site_general            VARCHAR2(50),
+    aer_gnd_ind            VARCHAR2(1),
+    applic_dt               DATE,
+    month                  VARCHAR2(50),
+    app_month               INTEGER,
+    county_cd               VARCHAR2(2),
+    county                  VARCHAR2(50),
+    region                  VARCHAR2(20),
+    operator_id            VARCHAR2(7),
+    site_loc_id            VARCHAR2(8),
+    license_no               VARCHAR2(13),
+    lbs_prd_used            NUMBER(20,4),
+    amt_prd_used            NUMBER(20,4),
+    unit_of_meas            VARCHAR2(2),
+    acre_treated            NUMBER,
+    unit_treated_report    VARCHAR2(1),
+    amt_treated            NUMBER,
+    unit_treated             VARCHAR2(1),
+    acre_planted            NUMBER,
+    unit_planted            VARCHAR2(1),
+    applic_cnt               INTEGER,
+    prod_rate               NUMBER,
+    log_prod_rate            NUMBER,
+    lbs_prod_per_app         NUMBER
+    )
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+STORAGE (INITIAL 5M NEXT 1M PCTINCREASE 0)
+TABLESPACE pur;
+
+SELECT   DISTINCT *
+FROM     ai_raw_rates
+WHERE    year = 2016;
+
+COMMIT;
+
+CREATE TABLE pur_test_nd
+   (use_no          INTEGER,
+    record_id       VARCHAR2(1),
+    site_code       NUMBER(6),
+    prodno          NUMBER(7),
+    lbs_prd_used    NUMBER(14,4),
+    amt_prd_used    NUMBER(12,4),
+    unit_of_meas    VARCHAR2(2),
+    acre_treated    NUMBER(10,2),
+    unit_treated    VARCHAR2(1),
+    applic_cnt      NUMBER(6),
+    acre_planted    NUMBER(10,2),
+    unit_planted    VARCHAR2(1),
+    applic_dt       DATE,
+    county_cd       VARCHAR2(2),
+    license_no      VARCHAR2(13),
+    site_loc_id     VARCHAR2(8),
+    aer_gnd_ind     VARCHAR2(1),
+    year            NUMBER(4))
+pctused 95
+pctfree 0
+storage (initial 5M next 2M pctincrease 0)
+nologging
+tablespace pur;
+
+INSERT INTO pur_test_nd
+   SELECT   DISTINCT *
+   FROM     pur_test
+COMMIT;
+
+SELECT   CASE WHEN record_id IN ('2', 'C') THEN 'N' ELSE 'A' END ag_ind, 
+         unit_treated, prodno, site_code, 
+         count(*) num_recs, count(fixed2_rate_outlier) num_fixed2,
+         count(mean5sd_rate_outlier) num_mean5, count(mean8sd_rate_outlier) num_mean8,
+         count(mean10sd_rate_outlier) num_mean10, count(mean12sd_rate_outlier) num_mean12,
+         count(max_label_outlier) num_max_label, count(limit_rate_outlier) limit_rate_outlier,
+         count(fixed2_lbsapp_outlier) num_fixed2,
+         count(mean5sd_lbsapp_outlier) num_mean5, count(mean8sd_lbsapp_outlier) num_mean8,
+         count(mean10sd_lbsapp_outlier) num_mean10, count(mean12sd_lbsapp_outlier) num_mean12,
+         count(limit_lbsapp_outlier) limit_lbsapp_outlier
+FROM     pur_test_nd left JOIN outliers_new using (year, use_no)
+GROUP BY CASE WHEN record_id IN ('2', 'C') THEN 'N' ELSE 'A' END, 
+         unit_treated, prodno, site_code
+ORDER BY CASE WHEN record_id IN ('2', 'C') THEN 'N' ELSE 'A' END, 
+         unit_treated, prodno, site_code;
+*/
 
 EXECUTE Co_error_new.Check_records(2016);
 
