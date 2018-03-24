@@ -9,23 +9,23 @@ SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
 
-DROP TABLE regno_short_table;
-CREATE TABLE regno_short_table
+DROP TABLE regno_ago_table;
+CREATE TABLE regno_ago_table
    (regno_short	VARCHAR2(20))
 NOLOGGING
 PCTUSED 95
 PCTFREE 3
 TABLESPACE pur_report;
 
-INSERT INTO regno_short_table
+INSERT INTO regno_ago_table
    SELECT   DISTINCT mfg_firmno||'-'||label_seq_no
    FROM     pur left JOIN product using (prodno)
    WHERE    year BETWEEN 2012 AND 2016;
 
 COMMIT;
 
-DROP TABLE regno_ago_site_unit;
-CREATE TABLE regno_ago_site_unit
+DROP TABLE outlier_all_stats_temp;
+CREATE TABLE outlier_all_stats_temp
    (regno_short			VARCHAR2(20),
 	 ago_ind        		VARCHAR2(1),
     site_general        VARCHAR2(100),
@@ -36,9 +36,9 @@ PCTFREE 3
 STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
-INSERT INTO regno_ago_site_unit (regno_short, ago_ind, site_general, unit_treated)
+INSERT INTO outlier_all_stats_temp (regno_short, ago_ind, site_general, unit_treated)
    SELECT   regno_short, ago_ind, site_general, unit_treated
-   FROM     regno_short_table 
+   FROM     regno_ago_table 
                CROSS JOIN 
             (SELECT   DISTINCT site_general
              FROM     pur_site_groups)
@@ -83,6 +83,101 @@ CREATE INDEX prodno_regno_short_ndx ON prodno_regno_short
    PCTFREE 2
    STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
+
+DROP TABLE outlier_final_stats;
+CREATE TABLE outlier_final_stats
+   (ago_ind        		VARCHAR2(1),
+    unit_treated 			VARCHAR2(1),
+    ai_rate_type        VARCHAR2(20),
+    site_type           VARCHAR2(20),
+    fixed2              NUMBER,
+	 mean_limit   			VARCHAR2(20))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
+TABLESPACE pur_report;
+
+*/
+
+/* Another way to create outlier_all_stats_temp:
+
+DROP TABLE regno_ago_table;
+CREATE TABLE regno_ago_table
+   (regno_short	VARCHAR2(20),
+    ago_ind       VARCHAR2(1))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+TABLESPACE pur_report;
+
+INSERT INTO regno_ago_table
+   SELECT   DISTINCT regno_short, ago_ind
+   FROM     pur_rates_2017;
+
+COMMIT;
+
+DROP TABLE site_general_table;
+CREATE TABLE site_general_table
+   (site_general  VARCHAR2(50))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+TABLESPACE pur_report;
+
+INSERT INTO site_general_table
+   SELECT   DISTINCT site_general
+   FROM     pur_site_groups;
+
+COMMIT;
+
+
+DROP TABLE unit_treated_table;
+CREATE TABLE unit_treated_table
+   (unit_treated  VARCHAR2(1))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+TABLESPACE pur_report;
+
+INSERT INTO unit_treated_table VALUES ('A');
+INSERT INTO unit_treated_table VALUES ('C');
+INSERT INTO unit_treated_table VALUES ('P');
+INSERT INTO unit_treated_table VALUES ('S');
+INSERT INTO unit_treated_table VALUES ('K');
+INSERT INTO unit_treated_table VALUES ('T');
+INSERT INTO unit_treated_table VALUES ('U');
+COMMIT;
+
+INSERT INTO outlier_all_stats_temp (regno_short, ago_ind, site_general, unit_treated)
+   SELECT   regno_short, ago_ind, site_general, unit_treated
+   FROM     regno_ago_table CROSS JOIN site_general_table
+                        CROSS JOIN unit_treated_table;
+
+COMMIT;
+
+*/
+
+/*
+   Max product rates every found in PUR ag or nonag (or RAW_PUR after 1999):
+   A: 5,100,000
+   S:   358,000 (next highest was 20,000, then 6,000)
+   C:     5,500
+   K:   161,000 (next highest was 16,000)
+   P:     1,200
+   T:    38,000
+   U: 2,100,000 (in raw 2017, next highest was 440,000)
+
+   Set maximum rates:
+   A: 50,000,000
+   S:    500,000 
+   C:     50,000
+   K:  1,000,000 
+   P:     10,000
+   T:    500,000
+   U:  5,000,000 
+
+*/
 
 DROP TABLE outlier_all_stats;
 CREATE TABLE outlier_all_stats
@@ -176,7 +271,7 @@ DECLARE
 
    CURSOR oas_cur IS
       SELECT   regno_short, ago_ind, site_general, unit_treated
-      FROM     regno_ago_site_unit
+      FROM     outlier_all_stats_temp
       ORDER BY regno_short, ago_ind, site_general, unit_treated;
 
    CURSOR ai_cur(p_regno IN VARCHAR2) IS
@@ -471,15 +566,6 @@ BEGIN
       END LOOP;
 
       /*
-         Max product rates every found in PUR ag or nonag (or RAW_PUR after 1999):
-         A: 5,100,000
-         S:   358,000 (next highest was 20,000, then 6,000)
-         C:     5,500
-         K:   161,000 (next highest was 16,000)
-         P:     1,200
-         T:    38,000
-         U: 2,100,000 (in raw 2017, next highest was 440,000)
-
          Set maximum rates:
          A: 50,000,000
          S:    500,000 
