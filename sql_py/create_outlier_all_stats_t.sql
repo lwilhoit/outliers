@@ -8,195 +8,83 @@ SET verify OFF
 SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
-WHENEVER SQLERROR EXIT 1 ROLLBACK
-WHENEVER OSERROR EXIT 1 ROLLBACK
 
-variable returncode number;
-VARIABLE log_level NUMBER;
+DROP TABLE regno_short_table;
+CREATE TABLE regno_short_table
+   (regno_short	VARCHAR2(20))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+TABLESPACE pur_report;
 
-PROMPT ________________________________________________
-PROMPT Run procedures to create table OUTLIER_ALL_STATS ...
-DECLARE
-	v_table_exists		INTEGER := 0;
-   v_create_table    BOOLEAN := FALSE;
-   v_table_name      VARCHAR2(100);
-   v_num_days_old1   INTEGER := &&3;
-   v_num_days_old2   INTEGER := &&4;
-   v_num_days_old3   INTEGER := &&5;
-   v_created_date    DATE;
-   e_old_table       EXCEPTION;
-BEGIN
-   :log_level := &&6;
-   :returncode := 0;
+INSERT INTO regno_short_table
+   SELECT   DISTINCT mfg_firmno||'-'||label_seq_no
+   FROM     pur left JOIN product using (prodno)
+   WHERE    year BETWEEN 2012 AND 2016;
 
-   print_info('__________________________________________________________________________________________________________________', :log_level);
-   print_info('First, check that the tables needed to create OUTLIER_ALL_STATS exist and have been created recently.', :log_level);
+COMMIT;
 
-   -------------------------------------------------------------------------------------------------------------------------------
-   -- Check existence and creation date for tables REGNO_SHORT_TABLE and REGNO_AGO_SITE_UNIT.
-   v_table_name := UPPER('REGNO_SHORT_TABLE');
-   print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
+DROP TABLE regno_ago_site_unit;
+CREATE TABLE regno_ago_site_unit
+   (regno_short			VARCHAR2(20),
+	 ago_ind        		VARCHAR2(1),
+    site_general        VARCHAR2(100),
+    unit_treated 			VARCHAR2(1))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
+TABLESPACE pur_report;
 
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = v_table_name;
+INSERT INTO regno_ago_site_unit (regno_short, ago_ind, site_general, unit_treated)
+   SELECT   regno_short, ago_ind, site_general, unit_treated
+   FROM     regno_short_table 
+               CROSS JOIN 
+            (SELECT   DISTINCT site_general
+             FROM     pur_site_groups)
+               CROSS JOIN 
+            (SELECT 'A' ago_ind FROM dual
+				 UNION
+				 SELECT 'N' FROM dual)
+               CROSS JOIN 
+            (SELECT 'A' unit_treated FROM dual
+				 UNION
+				 SELECT 'S' FROM dual
+				 UNION
+				 SELECT 'C' FROM dual
+				 UNION
+				 SELECT 'K' FROM dual
+				 UNION
+				 SELECT 'P' FROM dual
+				 UNION
+				 SELECT 'T' FROM dual
+				 UNION
+				 SELECT 'U' FROM dual);
 
-	IF v_table_exists > 0 THEN
-      SELECT   created
-      INTO     v_created_date
-      FROM     all_tables left JOIN all_objects 
-                  ON all_tables.owner = all_objects.owner AND
-                     all_tables.table_name = all_objects.object_name
-      WHERE    object_type = 'TABLE' AND
-               all_tables.owner IN ('PUR_REPORT', 'LWILHOIT') AND
-               table_name = v_table_name;
+COMMIT;
 
-      IF v_created_date < SYSDATE - v_num_days_old1 THEN     
-         EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
-         v_create_table := TRUE;
-         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
-      ELSE
-         v_create_table := FALSE;
-         print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
-      END IF;
-   ELSE
-      v_create_table := TRUE;
-      print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
-	END IF;
+CREATE TABLE prodno_regno_short
+   (prodno        		INTEGER,
+    regno_short			VARCHAR2(20))
+NOLOGGING
+PCTUSED 95
+PCTFREE 3
+STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
+TABLESPACE pur_report;
 
-   v_table_name := UPPER('REGNO_AGO_SITE_UNIT');
-   print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
+INSERT INTO prodno_regno_short
+   SELECT   prodno, mfg_firmno||'-'||label_seq_no
+   FROM     product;
 
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = v_table_name;
+COMMIT;
 
-	IF v_table_exists > 0 THEN
-      IF v_create_table THEN     
-         EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
-         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
-      ELSE
-         print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
-      END IF;
-   ELSE
-      print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
-	END IF;
-
-   IF v_create_table THEN
-      EXECUTE IMMEDIATE 
-        'CREATE TABLE prodno_regno_short
-            (prodno        INTEGER,
-             regno_short	VARCHAR2(20))
-         NOLOGGING
-         PCTUSED 95
-         PCTFREE 3
-         TABLESPACE pur_report';
-
-      INSERT INTO prodno_regno_short
-         SELECT   prodno, mfg_firmno||'-'||label_seq_no
-         FROM     product;
-
-      COMMIT;
-
-      EXECUTE IMMEDIATE 
-       'CREATE TABLE regno_short_table
-           (regno_short	VARCHAR2(20))
-        NOLOGGING
-        PCTUSED 95
-        PCTFREE 3
-        TABLESPACE pur_report';
-
-     INSERT INTO regno_short_table
-        SELECT   DISTINCT mfg_firmno||'-'||label_seq_no
-        FROM     pur left JOIN product using (prodno)
-        WHERE    year BETWEEN 2012 AND 2016;
-
-     COMMIT;
-
-   END IF;
+CREATE INDEX prodno_regno_short_ndx ON prodno_regno_short
+	(prodno)
+   PCTFREE 2
+   STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0);
 
 
-   -------------------------------------------------------------------------------------------------------------------------------
-   -- Check existence and creation date for table PRODNO_REGNO_SHORT
-   v_table_name := UPPER('PRODNO_REGNO_SHORT');
-   print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
-
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = v_table_name;
-
-	IF v_table_exists > 0 THEN
-      SELECT   created
-      INTO     v_created_date
-      FROM     all_tables left JOIN all_objects 
-                  ON all_tables.owner = all_objects.owner AND
-                     all_tables.table_name = all_objects.object_name
-      WHERE    object_type = 'TABLE' AND
-               all_tables.owner IN ('PUR_REPORT', 'LWILHOIT') AND
-               table_name = v_table_name;
-
-      IF v_created_date < SYSDATE - v_num_days_old1 THEN     
-         EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
-         v_create_table := TRUE;
-         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
-      ELSE
-         v_create_table := FALSE;
-         print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
-      END IF;
-   ELSE
-      v_create_table := TRUE;
-      print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
-	END IF;
-
-   IF v_create_table THEN
-      EXECUTE IMMEDIATE 
-        'CREATE TABLE prodno_regno_short
-            (prodno        INTEGER,
-             regno_short	VARCHAR2(20))
-         NOLOGGING
-         PCTUSED 95
-         PCTFREE 3
-         TABLESPACE pur_report';
-
-      INSERT INTO prodno_regno_short
-         SELECT   prodno, mfg_firmno||'-'||label_seq_no
-         FROM     product;
-
-      COMMIT;
-
-   END IF;
-
-  -------------------------------------------------
-   -- Check existence of table OUTLIER_ALL_STATS
-   print_info('__________________________________________________________________________________________________________________', :log_level);
-   print_info('Check if table OUTLIER_ALL_STATS exists; if it does delete the table so it can be recreated with the current PUR data.', :log_level);
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = UPPER('OUTLIER_ALL_STATS');
-
-	IF v_table_exists > 0 THEN
-		EXECUTE IMMEDIATE 'DROP TABLE OUTLIER_ALL_STATS';
-      print_info('Table OUTLIER_ALL_STATS exists, so it was deleted.', :log_level);
-   ELSE
-      print_info('Table OUTLIER_ALL_STATS does not exist.', :log_level);
-	END IF;
-EXCEPTION
-   WHEN e_old_table THEN
-      print_critical('Table '||v_table_name||' was created on '||v_created_date ||', which is more than '||v_num_days_old1||' days old.', :log_level);
-      RAISE_APPLICATION_ERROR(-20000, 'Table is too old and needs to be recreated'); 
-   WHEN OTHERS THEN
-      DBMS_OUTPUT.PUT_LINE(SQLERRM);
-END;
-/
-show errors
-
-
-PROMPT .................................
-PROMPT Now, create OUTLIER_ALL_STATS table...
+DROP TABLE outlier_all_stats;
 CREATE TABLE outlier_all_stats
    (regno_short			VARCHAR2(20),
     ago_ind             VARCHAR2(1),
@@ -660,8 +548,4 @@ END;
 /
 show errors
 
-
-PROMPT ________________________________________________
-
-EXIT :returncode
 
