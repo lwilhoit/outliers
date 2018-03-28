@@ -118,6 +118,7 @@ run_ai_num_recs_nonag_tk = BooleanVar()
 run_pur_rates_nonag_tk = BooleanVar()
 run_stats_tables_tk = BooleanVar()
 run_outlier_stats_tk = BooleanVar()
+run_outlier_final_stats_tk = BooleanVar()
 run_outlier_all_stats_tk = BooleanVar()
 
 stat_year_tk = IntVar()
@@ -302,6 +303,7 @@ def start_procedures():
         run_pur_rates_nonag = run_pur_rates_nonag_tk.get()
         run_stats_tables = run_stats_tables_tk.get()
         run_outlier_stats = run_outlier_stats_tk.get()
+        run_outlier_final_stats = run_outlier_final_stats_tk.get()
         run_outlier_all_stats = run_outlier_all_stats_tk.get()
 
         stat_year = stat_year_tk.get()
@@ -465,15 +467,15 @@ def start_procedures():
                 # exec(open(sql_directory + "outlier_stats.py").read())
                 # execfile(sql_directory + "outlier_stats.py")
 
-#           if run_outlier_final_stats:
-#               #################################################################################
-#               # Create table OUTLIER_FINAL_STATS.
-#               sql_file = 'create_outlier_final_stats.sql'
-#               call_sql(sql_login, sql_file, log_level)
-#
-#               # Load data into table OUTLIER_FINAL_STATS
-#               load_table = 'outlier_final_stats'
-#               call_ctl(loader_login, load_table)
+            if run_outlier_final_stats:
+                #################################################################################
+                # Create table OUTLIER_FINAL_STATS.
+                sql_file = 'create_outlier_final_stats.sql'
+                call_sql(sql_login, sql_file, num_days_old1, log_level)
+
+                # Load data into table OUTLIER_FINAL_STATS
+                load_table = 'outlier_final_stats'
+                call_ctl(loader_login, load_table)
 
             if run_outlier_all_stats:
                 #################################################################################
@@ -598,8 +600,12 @@ run_stats_tables_tk.set(False)
 Checkbutton(proc_frame, text="   Add data to AI_GROUP_STATS and AI_OUTLIER_STATS tables", variable=run_outlier_stats_tk).grid(row=17, column=1, sticky='w')
 run_outlier_stats_tk.set(False)
 
-Checkbutton(proc_frame, text="   Create OUTLIER_ALL_STATS table", variable=run_outlier_all_stats_tk).grid(row=18, column=1, sticky='w')
+Checkbutton(proc_frame, text="   Create OUTLIER_FINAL_STATS table", variable=run_outlier_final_stats_tk).grid(row=18, column=1, sticky='w')
+run_outlier_final_stats_tk.set(True)
+
+Checkbutton(proc_frame, text="   Create OUTLIER_ALL_STATS table", variable=run_outlier_all_stats_tk).grid(row=19, column=1, sticky='w')
 run_outlier_all_stats_tk.set(True)
+
 
 
 

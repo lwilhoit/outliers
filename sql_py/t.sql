@@ -8,8 +8,17 @@ SET verify OFF
 SET trimspool ON
 SET numwidth 11
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
-WHENEVER SQLERROR EXIT 1 ROLLBACK
-WHENEVER OSERROR EXIT 1 ROLLBACK
+
+/*
+BEGIN
+   outlier_all_stats_proc;
+EXCEPTION
+   WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE(SQLERRM);
+END;
+/
+show errors
+*/
 
 variable returncode number;
 VARIABLE log_level NUMBER;
@@ -21,346 +30,75 @@ DECLARE
 	v_table_exists		INTEGER := 0;
    v_create_table    BOOLEAN := FALSE;
    v_table_name      VARCHAR2(100);
-   v_stat_year       INTEGER := &&1;
-   v_num_regno_years INTEGER := &&2;
-   v_num_days_old1   INTEGER := &&3;
+   v_stat_year       INTEGER := 2017;
+   v_num_regno_years INTEGER := 2;
+   v_num_days_old1   INTEGER := -1;
    v_created_date    DATE;
-
-   /* The following variables and cursors are used to population table OUTLIER_ALL_STATS.
-      I tried putting all these into a procedure; the create procedure ran,
-      and I could successfully run it in a simple PL/SQL block,
-      but could not run it in this block: I got the error
-      message "ORA-06508: PL/SQL: could not find program unit being called"
-      However, the procedure did exist as proven by running it through the simple
-      block.
-
-
-      This part of the script includes mentions of several tables, 
-      REGNO_AGO_SITE_UNIT, PRODNO_REGNO_SHORT, OUTLIER_FINAL_STATS, OUTLIER_ALL_STATS, 
-      which may not exist when this is called.
-      If this happens, you probably need to put this part of the
-      script into a separate file and call it after this file.
-
-   */
-   v_site_type             VARCHAR2(50);
-   v_ai_adjuvant           VARCHAR2(1);
-   v_ai_rate_type          VARCHAR2(50);
-   v_gen_unit_treated      VARCHAR2(1);
-   v_ai_group              INTEGER;
-
-   v_fixed1_ai             NUMBER;
-   v_fixed2_ai             NUMBER;
-   v_fixed3_ai             NUMBER;
-
-   v_median_ai             NUMBER;
-   v_mean5sd_ai            NUMBER;
-   v_mean7sd_ai            NUMBER;
-   v_mean8sd_ai            NUMBER;
-   v_mean10sd_ai           NUMBER;
-   v_mean12sd_ai           NUMBER;
-
-   v_fixed1_prod           NUMBER;
-   v_fixed2_prod           NUMBER;
-   v_fixed3_prod           NUMBER;
-
-   v_median_prod           NUMBER;
-   v_mean5sd_prod          NUMBER;
-   v_mean7sd_prod          NUMBER;
-   v_mean8sd_prod          NUMBER;
-   v_mean10sd_prod         NUMBER;
-   v_mean12sd_prod         NUMBER;
-
-   v_mean_limit_ai_str     VARCHAR2(100);
-   v_mean_limit_prod_str   VARCHAR2(100);
-   v_mean_limit_ai         NUMBER;
-   v_outlier_limit_ai      NUMBER;
-   v_outlier_limit_prod    NUMBER;
-   v_outlier_limit_prod_min     NUMBER;
-
-   v_max_rate              NUMBER;
-
-   v_ai_pct                NUMBER;
-   v_unit_conversion       NUMBER;
-   v_chemname              VARCHAR2(200);
-   v_chem_code             INTEGER;
-
-   v_index                 INTEGER;
-   v_num_stat_recs         INTEGER;
-   v_outlier_stats_exist   BOOLEAN;
-
-   CURSOR oas_cur IS
-      SELECT   regno_short, ago_ind, site_general, unit_treated
-      FROM     regno_ago_site_unit
-      WHERE    regno_short = '100-1000'
-      ORDER BY regno_short, ago_ind, site_general, unit_treated;
-
-   CURSOR ai_cur(p_regno IN VARCHAR2) IS
-      SELECT   DISTINCT chem_code, prodchem_pct, chemname
-      FROM     prod_chem_major_ai left JOIN chemical using (chem_code)
-                                  left JOIN prodno_regno_short using (prodno)
-      WHERE    regno_short = p_regno;
-
 BEGIN
-   :log_level := &&4;
+   :log_level := 10;
    :returncode := 0;
 
-   print_info('__________________________________________________________________________________________________________________', :log_level);
-   print_info('First, check that the tables needed to create OUTLIER_ALL_STATS exist and have been created recently.', :log_level);
+   CREATE OR REPLACE PROCEDURE outlier_all_stats_proc
+   AS
+      v_site_type             VARCHAR2(50);
+      v_ai_adjuvant           VARCHAR2(1);
+      v_ai_rate_type          VARCHAR2(50);
+      v_gen_unit_treated      VARCHAR2(1);
+      v_ai_group              INTEGER;
 
-   /*******************************************************************
-      Check existence and creation date for table REGNO_SHORT_TABLE.
-   *******************************************************************/
-   v_table_name := UPPER('REGNO_SHORT_TABLE');
-   print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
+      v_fixed1_ai             NUMBER;
+      v_fixed2_ai             NUMBER;
+      v_fixed3_ai             NUMBER;
 
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = v_table_name;
+      v_median_ai             NUMBER;
+      v_mean5sd_ai            NUMBER;
+      v_mean7sd_ai            NUMBER;
+      v_mean8sd_ai            NUMBER;
+      v_mean10sd_ai           NUMBER;
+      v_mean12sd_ai           NUMBER;
 
-	IF v_table_exists > 0 THEN
-      SELECT   created
-      INTO     v_created_date
-      FROM     all_tables left JOIN all_objects 
-                  ON all_tables.owner = all_objects.owner AND
-                     all_tables.table_name = all_objects.object_name
-      WHERE    object_type = 'TABLE' AND
-               all_tables.owner IN ('PUR_REPORT', 'LWILHOIT') AND
-               table_name = v_table_name;
+      v_fixed1_prod           NUMBER;
+      v_fixed2_prod           NUMBER;
+      v_fixed3_prod           NUMBER;
 
-      IF v_created_date < SYSDATE - v_num_days_old1 THEN     
-         EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
-         v_create_table := TRUE;
-         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
-      ELSE
-         v_create_table := FALSE;
-         print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
-      END IF;
-   ELSE
-      v_create_table := TRUE;
-      print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
-	END IF;
+      v_median_prod           NUMBER;
+      v_mean5sd_prod          NUMBER;
+      v_mean7sd_prod          NUMBER;
+      v_mean8sd_prod          NUMBER;
+      v_mean10sd_prod         NUMBER;
+      v_mean12sd_prod         NUMBER;
 
-   print_info('------------------------------------------------------------------', :log_level);
-   IF v_create_table THEN
-      EXECUTE IMMEDIATE 
-       'CREATE TABLE regno_short_table
-           (regno_short	VARCHAR2(20))
-        NOLOGGING
-        PCTUSED 95
-        PCTFREE 3
-        TABLESPACE pur_report';
+      v_mean_limit_ai_str     VARCHAR2(100);
+      v_mean_limit_prod_str   VARCHAR2(100);
+      v_mean_limit_ai         NUMBER;
+      v_outlier_limit_ai      NUMBER;
+      v_outlier_limit_prod    NUMBER;
+      v_outlier_limit_prod_min     NUMBER;
 
-      print_info('Table '||v_table_name||' created.', :log_level);
+      v_max_rate              NUMBER;
 
-      EXECUTE IMMEDIATE 
-      'INSERT INTO regno_short_table '||
-      '  SELECT   DISTINCT mfg_firmno||''-''||label_seq_no '||
-      '  FROM     pur left JOIN product using (prodno) '||
-      '  WHERE    year BETWEEN ('||v_stat_year||' - '||v_num_regno_years||' + 1) AND '||v_stat_year;
+      v_ai_pct                NUMBER;
+      v_unit_conversion       NUMBER;
+      v_chemname              VARCHAR2(200);
+      v_chem_code             INTEGER;
 
-      COMMIT;
+      v_index                 INTEGER;
+      v_num_stat_recs         INTEGER;
+      v_outlier_stats_exist   BOOLEAN;
 
-      print_info('Table '||v_table_name||' populated.', :log_level);
-
-   END IF;
-
-
-   /*******************************************************************
-      Check existence for table REGNO_AGO_SITE_UNIT.
-   *******************************************************************/
-   v_table_name := UPPER('REGNO_AGO_SITE_UNIT');
-   print_info('__________________________________________________________________', :log_level);
-   print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
-
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = v_table_name;
-
-	IF v_table_exists > 0 THEN
-      IF v_create_table THEN     
-         EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
-         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
-      ELSE
-         print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
-      END IF;
-   ELSE
-      print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
-	END IF;
-
-   print_info('------------------------------------------------------------------', :log_level);
-   IF v_create_table THEN
-      EXECUTE IMMEDIATE 
-        'CREATE TABLE regno_ago_site_unit
-            (regno_short			VARCHAR2(20),
-         	 ago_ind        		VARCHAR2(1),
-             site_general        VARCHAR2(100),
-             unit_treated 			VARCHAR2(1))
-         NOLOGGING
-         PCTUSED 95
-         PCTFREE 3
-         TABLESPACE pur_report';
-
-      print_info('Table '||v_table_name||' created.', :log_level);
-
-      EXECUTE IMMEDIATE 
-      'INSERT INTO regno_ago_site_unit (regno_short, ago_ind, site_general, unit_treated)
+      CURSOR oas_cur IS
          SELECT   regno_short, ago_ind, site_general, unit_treated
-         FROM     regno_short_table 
-                     CROSS JOIN 
-                  (SELECT   DISTINCT site_general
-                   FROM     pur_site_groups)
-                     CROSS JOIN 
-                  (SELECT ''A'' ago_ind FROM dual
-      				 UNION
-      				 SELECT ''N'' FROM dual)
-                     CROSS JOIN 
-                  (SELECT ''A'' unit_treated FROM dual
-      				 UNION
-      				 SELECT ''S'' FROM dual
-      				 UNION
-      				 SELECT ''C'' FROM dual
-      				 UNION
-      				 SELECT ''K'' FROM dual
-      				 UNION
-      				 SELECT ''P'' FROM dual
-      				 UNION
-      				 SELECT ''T'' FROM dual
-      				 UNION
-      				 SELECT ''U'' FROM dual)';
+         FROM     regno_ago_site_unit
+         WHERE    regno_short = '100-1000'
+         ORDER BY regno_short, ago_ind, site_general, unit_treated;
 
-      print_info('Table '||v_table_name||' populated.', :log_level);
-   END IF;
-
-
-   /*******************************************************************
-      Check existence for table PRODNO_REGNO_SHORT.
-   *******************************************************************/
-   v_table_name := UPPER('PRODNO_REGNO_SHORT');
-   print_info('__________________________________________________________________', :log_level);
-   print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
-
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = v_table_name;
-
-	IF v_table_exists > 0 THEN
-      IF v_create_table THEN     
-         EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
-         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
-      ELSE
-         print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
-      END IF;
-   ELSE
-      print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
-	END IF;
-
-   print_info('------------------------------------------------------------------', :log_level);
-   IF v_create_table THEN
-      EXECUTE IMMEDIATE 
-        'CREATE TABLE prodno_regno_short
-            (prodno        INTEGER,
-             regno_short	VARCHAR2(20))
-         NOLOGGING
-         PCTUSED 95
-         PCTFREE 3
-         TABLESPACE pur_report';
-
-      print_info('Table '||v_table_name||' created.', :log_level);
-
-      EXECUTE IMMEDIATE 
-      'INSERT INTO prodno_regno_short
-         SELECT   prodno, mfg_firmno||''-''||label_seq_no
-         FROM     product';
-
-      COMMIT;
-
-      print_info('Table '||v_table_name||' populated.', :log_level);
-   END IF;
-
-
-   /*******************************************************************
-      Check existence for table OUTLIER_ALL_STATS.
-   *******************************************************************/
-   v_table_name := UPPER('OUTLIER_ALL_STATS');
-   print_info('__________________________________________________________________', :log_level);
-   print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
-
-   SELECT	COUNT(*)
-	INTO		v_table_exists
-	FROM		user_tables
-	WHERE		table_name = v_table_name;
-
-	IF v_table_exists > 0 THEN
-      IF v_create_table THEN     
-         EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
-         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
-      ELSE
-         print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
-      END IF;
-   ELSE
-      print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
-	END IF;
-
-   print_info('------------------------------------------------------------------', :log_level);
-   IF v_create_table THEN
-      EXECUTE IMMEDIATE 
-        'CREATE TABLE outlier_all_stats
-            (regno_short			VARCHAR2(20),
-             ago_ind             VARCHAR2(1),
-             site_general        VARCHAR2(100),
-             site_type           VARCHAR2(100),
-             unit_treated 			VARCHAR2(1),
-             chem_code           INTEGER,
-             chemname            VARCHAR2(200), -- The AI which resulted in this product having outlier
-             ai_group            INTEGER,
-             prodchem_pct        NUMBER,
-             ai_rate_type        VARCHAR2(50),
-             median              NUMBER,
-             mean5sd   				NUMBER,
-             mean7sd   				NUMBER,
-             mean8sd   				NUMBER,
-             mean10sd   			NUMBER,
-             mean12sd   			NUMBER,
-             fixed1              NUMBER,
-             fixed2              NUMBER,
-             fixed3              NUMBER,
-             outlier_limit       NUMBER,
-             outlier_limit_prod  NUMBER,
-             median_ai           NUMBER,
-             mean5sd_ai   			NUMBER,
-             mean7sd_ai   			NUMBER,
-             mean8sd_ai   			NUMBER,
-             mean10sd_ai   		NUMBER,
-             mean12sd_ai   		NUMBER,
-             fixed1_ai           NUMBER,
-             fixed2_ai           NUMBER,
-             fixed3_ai           NUMBER,
-             outlier_limit_ai    NUMBER,
-             max_rate            NUMBER,
-             unit_conversion     NUMBER,
-             mean_limit_prod_str VARCHAR2(100))
-         NOLOGGING
-         PCTUSED 95
-         PCTFREE 3
-         TABLESPACE pur_report';
-
-      print_info('Table '||v_table_name||' created.', :log_level);
-
-      /* As explained at the beginning of this script, I
-         put the following code in a procedure named outlier_all_stats_proc.
-         However, calling it here generated the error:
-         "ORA-06508: PL/SQL: could not find program unit being called"
-
-      outlier_all_stats_proc;
-      */
-
-      /*
-         Populate table outlier_all_stats.
-       */
-
+      CURSOR ai_cur(p_regno IN VARCHAR2) IS
+         SELECT   DISTINCT chem_code, prodchem_pct, chemname
+         FROM     prod_chem_major_ai left JOIN chemical using (chem_code)
+                                     left JOIN prodno_regno_short using (prodno)
+         WHERE    regno_short = p_regno;
+        
+   BEGIN
       v_index := 0;
       FOR oas_rec IN oas_cur LOOP
          --DBMS_OUTPUT.PUT_LINE('********************************');
@@ -716,6 +454,64 @@ BEGIN
 
       COMMIT;
 
+   EXCEPTION
+   	WHEN OTHERS THEN
+         DBMS_OUTPUT.PUT_LINE(SQLERRM);
+   END;
+
+
+   v_create_table := TRUE;
+   v_table_name := UPPER('OUTLIER_ALL_STATS');
+
+   IF v_create_table THEN
+      EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
+      print_info('Table '||v_table_name||' dropped.', :log_level);
+
+      EXECUTE IMMEDIATE 
+        'CREATE TABLE outlier_all_stats
+            (regno_short			VARCHAR2(20),
+             ago_ind             VARCHAR2(1),
+             site_general        VARCHAR2(100),
+             site_type           VARCHAR2(100),
+             unit_treated 			VARCHAR2(1),
+             chem_code           INTEGER,
+             chemname            VARCHAR2(200), -- The AI which resulted in this product having outlier
+             ai_group            INTEGER,
+             prodchem_pct        NUMBER,
+             ai_rate_type        VARCHAR2(50),
+             median              NUMBER,
+             mean5sd   				NUMBER,
+             mean7sd   				NUMBER,
+             mean8sd   				NUMBER,
+             mean10sd   			NUMBER,
+             mean12sd   			NUMBER,
+             fixed1              NUMBER,
+             fixed2              NUMBER,
+             fixed3              NUMBER,
+             outlier_limit       NUMBER,
+             outlier_limit_prod  NUMBER,
+             median_ai           NUMBER,
+             mean5sd_ai   			NUMBER,
+             mean7sd_ai   			NUMBER,
+             mean8sd_ai   			NUMBER,
+             mean10sd_ai   		NUMBER,
+             mean12sd_ai   		NUMBER,
+             fixed1_ai           NUMBER,
+             fixed2_ai           NUMBER,
+             fixed3_ai           NUMBER,
+             outlier_limit_ai    NUMBER,
+             max_rate            NUMBER,
+             unit_conversion     NUMBER,
+             mean_limit_prod_str VARCHAR2(100))
+         NOLOGGING
+         PCTUSED 95
+         PCTFREE 3
+         TABLESPACE pur_report';
+
+      print_info('Table '||v_table_name||' created.', :log_level);
+
+      EXECUTE IMMEDIATE outlier_all_stats_proc;
+
       print_info('Table '||v_table_name||' populated.', :log_level);
    END IF;
 
@@ -725,8 +521,4 @@ EXCEPTION
 END;
 /
 show errors
-
-PROMPT ________________________________________________
-
-EXIT :returncode
 

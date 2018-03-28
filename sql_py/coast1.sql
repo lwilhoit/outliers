@@ -1,4 +1,3 @@
-SET pause OFF
 SET pagesize 75
 SET linesize 120
 SET termout ON
@@ -7,32 +6,25 @@ SET document OFF
 SET verify OFF
 SET trimspool ON
 SET numwidth 11
-SET SERVEROUTPUT ON
 SET SERVEROUTPUT ON SIZE 1000000 FORMAT WORD_WRAPPED
-WHENEVER SQLERROR EXIT 1 ROLLBACK
-WHENEVER OSERROR EXIT 1 ROLLBACK
 
-/*
-   Table OUTLIER_FINAL_STATS is a table of the .
-
- */
 
 VARIABLE log_level NUMBER;
 
 PROMPT ________________________________________________
-PROMPT Create OUTLIER_FINAL_STATS table...
+PROMPT Run procedures to create table OUTLIER_ALL_STATS ...
 DECLARE
 	v_table_exists		INTEGER := 0;
    v_create_table    BOOLEAN := FALSE;
    v_table_name      VARCHAR2(100);
-   v_num_days_old1   INTEGER := &&1;
+   v_num_days_old1   INTEGER := 10;
    v_created_date    DATE;
-
 BEGIN
-   :log_level := &&2;
+   :log_level := 10;
 
-   v_table_name := UPPER('OUTLIER_FINAL_STATS');
    print_info('__________________________________________________________________________________________________________________', :log_level);
+   print_info('First, check that the tables needed to create OUTLIER_ALL_STATS exist and have been created recently.', :log_level);
+   v_table_name := UPPER('AI_STATS_TEMP');
    print_info('Check if table '||v_table_name||' exists; if it older than '||v_num_days_old1||' days recreate it.', :log_level);
 
    SELECT	COUNT(*)
@@ -53,7 +45,7 @@ BEGIN
       IF v_created_date < SYSDATE - v_num_days_old1 THEN     
          EXECUTE IMMEDIATE 'DROP TABLE '||v_table_name;
          v_create_table := TRUE;
-         print_info('Table '|| v_table_name ||' exists but is old so will will be replaced.', :log_level);
+         print_info('Table '|| v_table_name ||' exists but old and will be replaced.', :log_level);
       ELSE
          v_create_table := FALSE;
          print_info('Table '|| v_table_name ||' exists but is recent so will left unchanged.', :log_level);
@@ -63,22 +55,42 @@ BEGIN
       print_info('Table '|| v_table_name ||' does not exist so it will be created.', :log_level);
 	END IF;
 
-   print_info('------------------------------------------------------------------', :log_level);
    IF v_create_table THEN
-      EXECUTE IMMEDIATE 
-       'CREATE TABLE outlier_final_stats
-         (ago_ind        		VARCHAR2(1),
-          unit_treated 			VARCHAR2(1),
-          ai_rate_type        VARCHAR2(20),
-          site_type           VARCHAR2(20),
-          fixed2              NUMBER,
-      	 mean_limit   			VARCHAR2(20))
-        NOLOGGING
-        PCTUSED 95
-        PCTFREE 3
-        TABLESPACE pur_report';
+       EXECUTE IMMEDIATE 
+        'CREATE TABLE ai_stats_temp
+            (ai_code             INTEGER,
+             active_ingredient	VARCHAR2(200),
+             num_recs            INTEGER,
+             mean_rate           NUMBER,
+             med_rate            NUMBER,
+             std_rate            NUMBER)
+         NOLOGGING
+         PCTUSED 95
+         PCTFREE 3
+         TABLESPACE pur_report';
 
-      print_info('Table '||v_table_name||' created.', :log_level);
+      INSERT INTO AI_STATS_TEMP
+         SELECT   *
+         FROM     AI_STATS_TEMP1;
+
+      COMMIT;
+
+      /*
+       EXECUTE IMMEDIATE 
+        'CREATE TABLE ctemp
+            (county_cd	VARCHAR2(2),
+             coname     VARCHAR2(30))
+         NOLOGGING
+         PCTUSED 95
+         PCTFREE 3
+         TABLESPACE pur_report';
+
+      INSERT INTO ctemp
+         SELECT   county_cd, coname
+         FROM     county;
+
+      COMMIT;
+      */
 
    END IF;
 
@@ -87,10 +99,10 @@ EXCEPTION
       DBMS_OUTPUT.PUT_LINE(SQLERRM);
 END;
 /
+
+/*
+execute print_info('test', 10)
+
+*/
 show errors
-
-PROMPT ________________________________________________
-
-EXIT 0
-
 
