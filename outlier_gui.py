@@ -5,6 +5,8 @@ Create tables to find high or outlier values in the PUR.
 
 # First need to activate the appropriate environment by typing at the prompt:
 # activate pur3
+# Then start the script:
+# python outlier_gui.py
 
 # To do:
 # 1. Print output to screen during long running processes.
@@ -116,10 +118,12 @@ run_ai_num_recs_nonag_tk = BooleanVar()
 run_pur_rates_nonag_tk = BooleanVar()
 run_stats_tables_tk = BooleanVar()
 run_outlier_stats_tk = BooleanVar()
+run_outlier_all_stats_tk = BooleanVar()
 
 stat_year_tk = IntVar()
 num_stat_years_tk = IntVar()
 num_fixed_years_tk = IntVar()
+num_regno_years_tk = IntVar()
 num_days_old1_tk = IntVar()
 num_days_old2_tk = IntVar()
 num_days_old3_tk = IntVar()
@@ -298,10 +302,12 @@ def start_procedures():
         run_pur_rates_nonag = run_pur_rates_nonag_tk.get()
         run_stats_tables = run_stats_tables_tk.get()
         run_outlier_stats = run_outlier_stats_tk.get()
+        run_outlier_all_stats = run_outlier_all_stats_tk.get()
 
         stat_year = stat_year_tk.get()
         num_stat_years = num_stat_years_tk.get()
         num_fixed_years = num_fixed_years_tk.get()
+        num_regno_years = num_regno_years_tk.get()
         num_days_old1 = num_days_old1_tk.get()
         num_days_old2 = num_days_old2_tk.get()
         num_days_old3 = num_days_old3_tk.get()
@@ -459,21 +465,21 @@ def start_procedures():
                 # exec(open(sql_directory + "outlier_stats.py").read())
                 # execfile(sql_directory + "outlier_stats.py")
 
-            if run_outlier_final_stats:
-                #################################################################################
-                # Create table OUTLIER_FINAL_STATS.
-                sql_file = 'create_outlier_final_stats.sql'
-                call_sql(sql_login, sql_file, log_level)
-
-                # Load data into table OUTLIER_FINAL_STATS
-                load_table = 'outlier_final_stats'
-                call_ctl(loader_login, load_table)
+#           if run_outlier_final_stats:
+#               #################################################################################
+#               # Create table OUTLIER_FINAL_STATS.
+#               sql_file = 'create_outlier_final_stats.sql'
+#               call_sql(sql_login, sql_file, log_level)
+#
+#               # Load data into table OUTLIER_FINAL_STATS
+#               load_table = 'outlier_final_stats'
+#               call_ctl(loader_login, load_table)
 
             if run_outlier_all_stats:
                 #################################################################################
                 # Create table OUTLIER_ALL_STATS.
                 sql_file = 'create_outlier_all_stats.sql'
-                call_sql(sql_login, sql_file, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_regno_years, num_days_old1, log_level)
 
 
 #           if run_stats_nonag_tables:
@@ -590,8 +596,10 @@ Checkbutton(proc_frame, text="   Create AI_GROUP_STATS and AI_OUTLIER_STATS tabl
 run_stats_tables_tk.set(False)
 
 Checkbutton(proc_frame, text="   Add data to AI_GROUP_STATS and AI_OUTLIER_STATS tables", variable=run_outlier_stats_tk).grid(row=17, column=1, sticky='w')
-run_outlier_stats_tk.set(True)
+run_outlier_stats_tk.set(False)
 
+Checkbutton(proc_frame, text="   Create OUTLIER_ALL_STATS table", variable=run_outlier_all_stats_tk).grid(row=18, column=1, sticky='w')
+run_outlier_all_stats_tk.set(True)
 
 
 
@@ -613,41 +621,46 @@ Label(param_frame, text="Set parameters", font="TkHeadingFont 12"). \
 # What year?
 Label(param_frame, text="Year: ").grid(row=2, column=1, sticky='w')
 Entry(param_frame, width=40, textvariable=stat_year_tk).grid(row=2, column=2)
-stat_year_tk.set("2018")
+stat_year_tk.set("2017")
 
 # Number of years?
 Label(param_frame, text="Number of years for PUR_RATES tables: ").grid(row=3, column=1, sticky='w')
 Entry(param_frame, width=40, textvariable=num_stat_years_tk).grid(row=3, column=2)
 num_stat_years_tk.set("1")
 
+# Number of years in REGNO_SHORT_TABLE? Normally set = 5
+Label(param_frame, text="Number of years for REGNO_SHORT_TABLE table: ").grid(row=4, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_regno_years_tk).grid(row=4, column=2)
+num_regno_years_tk.set("2")
+
 # Number of years in fixed tables? Normally set = 16
-Label(param_frame, text="Number of years for fixed tables: ").grid(row=4, column=1, sticky='w')
-Entry(param_frame, width=40, textvariable=num_fixed_years_tk).grid(row=4, column=2)
+Label(param_frame, text="Number of years for fixed tables: ").grid(row=5, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_fixed_years_tk).grid(row=5, column=2)
 num_fixed_years_tk.set("9")
 
 # Number of days table old?
-Label(param_frame, text="Number of days label tables considered too old: ").grid(row=5, column=1, sticky='w')
-Entry(param_frame, width=40, textvariable=num_days_old1_tk).grid(row=5, column=2)
+Label(param_frame, text="Number of days label tables considered too old: ").grid(row=6, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_days_old1_tk).grid(row=6, column=2)
 num_days_old1_tk.set("200") # Normally Set to 30
 
 # Number of days table old?
-Label(param_frame, text="Number of days AI_NUM_RECS... tables are considered too old: ").grid(row=6, column=1, sticky='w')
-Entry(param_frame, width=40, textvariable=num_days_old2_tk).grid(row=6, column=2)
+Label(param_frame, text="Number of days AI_NUM_RECS... tables are considered too old: ").grid(row=7, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_days_old2_tk).grid(row=7, column=2)
 num_days_old2_tk.set("2")
 
 # Number of days table old?
-Label(param_frame, text="Number of days PUR_SITE_GROUPS table is considered too old: ").grid(row=7, column=1, sticky='w')
-Entry(param_frame, width=40, textvariable=num_days_old3_tk).grid(row=7, column=2)
+Label(param_frame, text="Number of days PUR_SITE_GROUPS table is considered too old: ").grid(row=8, column=1, sticky='w')
+Entry(param_frame, width=40, textvariable=num_days_old3_tk).grid(row=8, column=2)
 num_days_old3_tk.set("300")
 
 
 
 # Load data from the Oracle database?
-Checkbutton(param_frame, text="Load from Oracle", variable=load_oracle_tk).grid(row=8, column=1, columnspan=2, sticky='w')
+Checkbutton(param_frame, text="Load from Oracle", variable=load_oracle_tk).grid(row=9, column=1, columnspan=2, sticky='w')
 load_oracle_tk.set(True)
 
 # Testing?
-Checkbutton(param_frame, text="Run testing scripts", variable=testing_tk).grid(row=9, column=1, columnspan=2, sticky='w')
+Checkbutton(param_frame, text="Run testing scripts", variable=testing_tk).grid(row=10, column=1, columnspan=2, sticky='w')
 testing_tk.set(True)
 
 

@@ -548,4 +548,7 @@ END;
 /
 show errors
 
+PROMPT ________________________________________________
+
+EXIT :returncode
 
