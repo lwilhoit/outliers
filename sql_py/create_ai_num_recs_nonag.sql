@@ -77,6 +77,8 @@ END;
 /
 show errors
 
+PROMPT ...............................................
+PROMPT Now, create termporary table AI_NUM_RECS_&&1 ...
 CREATE TABLE ai_num_recs_nonag_&&1
    (year				INTEGER,
 	 chem_code		INTEGER,

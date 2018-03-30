@@ -38,6 +38,7 @@ Create tables to find high or outlier values in the PUR.
 
 
 import outlier_stats as outs
+import outlier_stats_nonag as outsna
 import subprocess
 # import traceback
 import logging
@@ -398,7 +399,7 @@ def start_procedures():
                 sql_file = 'create_fixed_outlier_rates.sql'
                 call_sql(sql_login, sql_file, log_level)
 
-                # Load data into table FIXED_OUTLIER_RATES
+                # Load data into table FIXED_OUTLIER_RATES 
                 load_table = 'fixed_outlier_rates'
                 call_ctl(loader_login, load_table)
 
@@ -451,13 +452,15 @@ def start_procedures():
                 #################################################################################
                 # Create table PUR_RATES_NONAG_YYYY.
                 sql_file = 'create_pur_rates_nonag.sql'
-                call_sql(sql_login, sql_file, log_level)
+                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, num_days_old2, num_days_old3, log_level, comment1, comment2)
+
+
 
             if run_stats_tables:
                 #################################################################################
                 # Create empty tables AI_GROUP_STATS and AI_OUTLIER_STATS.
                 sql_file = 'create_ai_groups_ai_outlier_stats.sql'
-                call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, num_days_old2, num_days_old3, log_level, comment1, comment2)
+                call_sql(sql_login, sql_file, log_level)
 
             if run_outlier_stats:
                 #################################################################################
@@ -484,19 +487,21 @@ def start_procedures():
                 call_sql(sql_login, sql_file, stat_year, num_regno_years, num_days_old1, log_level)
 
 
-#           if run_stats_nonag_tables:
-#               #################################################################################
-#               # Create empty tables AI_GROUP_STATS_NONAG and AI_OUTLIER_STATS_NONAG.
-#               sql_file = 'create_ai_groups_ai_outlier_stats_nonag.sql'
-#               call_sql(sql_login, sql_file, stat_year, num_stat_years, num_days_old1, num_days_old2, num_days_old3, log_level, comment1, comment2)
-#
-#           if run_outlier_stats_nonag:
-#               #################################################################################
-#               # Add data to tables AI_GROUP_STATS_NONAG and AI_OUTLIER_STATS_NONAG.
-#               outs.get_outlier_stats_nonag(stat_year, load_oracle, replace_oracle_tables, append_oracle_tables, update_pur_rates, \
-#                                      table_directory, ctl_directory, sql_directory, user_login)
-#               # exec(open(sql_directory + "outlier_stats_nonag.py").read())
-#               # execfile(sql_directory + "outlier_stats_nonag.py")
+
+
+            if run_stats_nonag_tables:
+                #################################################################################
+                # Create empty tables AI_GROUP_STATS_NONAG and AI_OUTLIER_STATS_NONAG.
+                sql_file = 'create_ai_groups_ai_outlier_stats_nonag.sql'
+                call_sql(sql_login, sql_file, log_level)
+
+            if run_outlier_stats_nonag:
+                #################################################################################
+                # Add data to tables AI_GROUP_STATS_NONAG and AI_OUTLIER_STATS_NONAG.
+                outsna.get_outlier_nonag_stats(stat_year, load_oracle, replace_oracle_tables, append_oracle_tables, update_pur_rates, \
+                                       table_directory, ctl_directory, sql_directory, user_login)
+                # exec(open(sql_directory + "outlier_stats_nonag.py").read())
+                # execfile(sql_directory + "outlier_stats_nonag.py")
         else:
             logging.debug("Outliers not run")
 

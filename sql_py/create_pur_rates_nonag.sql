@@ -19,6 +19,7 @@ PROMPT Creating PUR_RATES_NONAG_&&1 table...
 DECLARE
 	v_table_exists		INTEGER := 0;
    v_table_name      VARCHAR2(100);
+   v_year            INTEGER := &&1;
    v_num_days_old1   INTEGER := &&3;
    v_num_days_old2   INTEGER := &&4;
    v_num_days_old3   INTEGER := &&5;
@@ -166,16 +167,18 @@ STORAGE (INITIAL 1M NEXT 1M PCTINCREASE 0)
 TABLESPACE pur_report;
 
 DECLARE
-	v_num_years		INTEGER;
-   v_num_recs     INTEGER;
+   v_year            INTEGER := &&1;
+	v_num_stat_years  INTEGER := &&2;
+	v_num_years		   INTEGER;
+   v_num_recs        INTEGER;
 BEGIN
-	FOR v_num_years IN 1..(&&2) LOOP
+	FOR v_num_years IN 1..v_num_stat_years LOOP
 
 		INSERT INTO pur_rates_nonag_&&1
 			(years, year, use_no, chem_code, chemname, ai_name, prod_adjuvant, ai_adjuvant,
 			 prodno, regno_short, site_code, site_general,
 			 lbs_ai, log_lbs_ai, lbs_ai_app, log_lbs_ai_app)
-		SELECT	(&&1 - &&2 + 1) ||'-'||(&&1), year, use_no,
+		SELECT	(v_year - v_num_stat_years + 1) ||'-'||v_year, year, use_no,
 					pcma.chem_code, chemname, ai_name, NVL(pa.adjuvant, 'N'), NVL(ca.adjuvant, 'N'),
 					prodno, mfg_firmno||'-'||label_seq_no,
 					NVL(site_code, -1), NVL(site_general, 'UNKNOWN'),
@@ -192,7 +195,7 @@ BEGIN
 						 LEFT JOIN chem_adjuvant ca ON pcma.chem_code = ca.chem_code
 						 LEFT JOIN pur_site_groups USING (site_code)
 						 JOIN ai_num_recs_nonag_sum_&&1 anrs ON pcma.chem_code = anrs.chem_code
-		WHERE		year BETWEEN (&&1 - v_num_years + 1) AND &&1 AND
+		WHERE		year BETWEEN (v_year - v_num_years + 1) AND v_year AND
 					record_id IN ('2', 'C') AND
 					lbs_prd_used > 0 AND
 					num_years = v_num_years 

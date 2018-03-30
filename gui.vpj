@@ -32,6 +32,7 @@
             <F N="sql_py/cvo1.sql"/>
             <F N="sql_py/cvo2.sql"/>
             <F N="../sql_py/files.sql"/>
+            <F N="sql_py/flag_outliers.sql"/>
             <F N="sql_py/onp.sql"/>
             <F N="sql_py/otr.sql"/>
             <F N="sql_py/otr2.sql"/>
@@ -43,6 +44,7 @@
             <F N="old/run_outliers_new.sql"/>
             <F N="sql_py/t.sql"/>
             <F N="t1.sql"/>
+            <F N="sql_py/t1.sql"/>
             <F N="../sql_py/t2.sql"/>
             <F N="sql_py/t3.sql"/>
             <F N="temp.sql"/>
